@@ -66,48 +66,59 @@ Import ITreeNotations.
 
 (** Interpret an itree in the context of a mutually recursive
     definition ([ctx]). *)
-Definition interp_mrec {D E : Type -> Type}
-           (ctx : D ~> itree (D +' E)) : itree (D +' E) ~> itree E :=
+
+(* CHECK THE TYPES *)
+
+Definition interp_mrec {Df Er Ef : Type -> Type} {T}
+  (ctx : Df ~> itree Er (Df +' Ef) T) :
+  itree Er (Df +' Ef) T ~> itree Er Ef T :=
   fun R =>
-    ITree.iter (fun t : itree (D +' E) R =>
+    ITree.iter (fun t : itree Er (Df +' Ef) T R =>
       match observe t with
       | RetF r => Ret (inr r)
-      | TauF t => Ret (inl t)
-      | VisF (inl1 d) k => Ret (inl (ctx _ d >>= k))
-      | VisF (inr1 e) k => Vis e (fun x => Ret (inl (k x)))
-      end).
+      | @VisF _ _ _ _ _ X0 (inl1 t) k =>
+          Ret (inl (@tauF_interp _ _ _ _ _ _ _ (VisF (inl1 t) k) eq_refl))             
+      | @VisF _ _ _ _ _ X0 (inr1 (inl1 er)) k => 
+          Vis (inr1 (inl1 er)) (fun x => Ret (inl (k x)))
+      | @VisF _ _ _ _ _ X0 (inr1 (inr1 (inl1 df))) k =>
+          Ret (inl (ctx _ df >>= k))
+      | @VisF _ _ _ _ _ X0 (inr1 (inr1 (inr1 ef))) k =>
+          Vis (inr1 (inr1 ef)) (fun x => Ret (inl (k x)))
+      end).    
 
-Arguments interp_mrec {D E} & ctx [T].
+Arguments interp_mrec {Df Er Ef T} & ctx [T0].
 
 (** Unfold a mutually recursive definition into separate trees,
     resolving the mutual references. *)
-Definition mrec {D E : Type -> Type}
-           (ctx : D ~> itree (D +' E)) : D ~> itree E :=
+Definition mrec {Df Er Ef : Type -> Type} {T}
+           (ctx : Df ~> itree Er (Df +' Ef) T) : Df ~> itree Er Ef T :=
   fun R d => interp_mrec ctx (ctx _ d).
 
-Arguments mrec {D E} & ctx [T].
+Arguments mrec {Df Er Ef T} & ctx [T0].
 
 (** Make a recursive call in the handler argument of [mrec]. *)
-Definition trigger_inl1 {D E : Type -> Type} : D ~> itree (D +' E)
-  := fun _ d => ITree.trigger (inl1 d).
+Definition trigger_inl1 {Df Er Ef : Type -> Type} {T} :
+  Df ~> itree Er (Df +' Ef) T
+  := fun _ d => ITree.trigger (inr1 (inl1 d)).
 
-Arguments trigger_inl1 {D E} [T].
+Arguments trigger_inl1 {Df Er Ef} {T} [T0].
 
 (** Here's some syntactic sugar with a notation [mrec-fix]. *)
 
 (** Short for endofunctions, used in [mrec_fix] and [rec_fix]. *)
 Local Notation endo T := (T -> T).
 
-Definition mrec_fix {D E : Type -> Type}
-           (ctx : endo (D ~> itree (D +' E)))
-  : D ~> itree E
+Definition mrec_fix {Df Er Ef : Type -> Type} {T}
+           (ctx : endo (Df ~> itree Er (Df +' Ef) T))
+  : Df ~> itree Er Ef T
   := mrec (ctx trigger_inl1).
 
-Arguments mrec_fix {D E} &.
+Arguments mrec_fix {Df Er Ef} {T} &.
 
 Notation "'mrec-fix' f d := g" :=
-	(let D := _ in
-	 mrec_fix (D := D) (fun (f : forall T, D T -> _) T (d : D T) => g))
+	(let Df := _ in
+	 mrec_fix (Df := Df)
+           (fun (f : forall T, Df T -> _) T0 (d : Df T0) => g))
   (at level 200, f name, d pattern).
 (* No idea what a good level would be. *)
 
@@ -135,36 +146,37 @@ Definition calling {A B} {F : Type -> Type}
 (* TODO: This is identical to [callWith] but [rec] finds a universe
    inconsistency with [calling], and not with [calling'].
    The inconsistency now pops up later (currently in [Events.Env]) *)
-Definition calling' {A B} {F : Type -> Type}
-           (f : A -> itree F B) : callE A B ~> itree F :=
+Definition calling' {A B} {Fr Ff : Type -> Type} {T}
+           (f : A -> itree Fr Ff T B) : callE A B ~> itree Fr Ff T :=
   fun _ e =>
     match e with
     | Call a => f a
     end.
 
 (* Interpret a single recursive definition. *)
-Definition rec {E : Type -> Type} {A B : Type}
-           (body : A -> itree (callE A B +' E) B) :
-  A -> itree E B :=
+Definition rec {Er Ef : Type -> Type} {T} {A B : Type}
+           (body : A -> itree Er (callE A B +' Ef) T B) :
+  A -> itree Er Ef T B :=
   fun a => mrec (calling' body) (Call a).
 
-Arguments rec {E A B} &.
+Arguments rec {Er Ef T A B} &.
 
 (** An easy way to construct an event suitable for use with [rec].
     [call] is an event representing the recursive call.  Since in general, the
     function might have other events of type [E], the resulting itree has
     type [(callE A B +' E)].
 *)
-Definition call {E A B} (a:A) : itree (callE A B +' E) B := ITree.trigger (inl1 (Call a)).
+Definition call {Er Ef T A B} (a:A) :
+  itree Er (callE A B +' Ef) T B := ITree.trigger (inr1 (inl1 (Call a))).
 
 (** Here's some syntactic sugar with a notation [mrec-fix]. *)
 
-Definition rec_fix {E : Type -> Type} {A B : Type}
-           (body : endo (A -> itree (callE A B +' E) B))
-  : A -> itree E B
+Definition rec_fix {Er Ef : Type -> Type} {T} {A B : Type}
+           (body : endo (A -> itree Er (callE A B +' Ef) T B))
+  : A -> itree Er Ef T B
   := rec (body call).
 
-Arguments rec_fix {E A B} &.
+Arguments rec_fix {Er Ef T A B} &.
 
 Notation "'rec-fix' f a := g" := (rec_fix (fun f a => g))
   (at level 200, f name, a pattern).

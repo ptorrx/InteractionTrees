@@ -6,7 +6,8 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Monad.
 Require Import Program.Tactics.
 
-From ITree Require Import Basics.
+From ITree Require Import Basics
+                          Indexed.Sum.
 
 Set Implicit Arguments.
 Set Contextual Implicit.
@@ -23,16 +24,21 @@ Set Primitive Projections.
 
 Section itree.
 
-  Context {E : Type -> Type} {R : Type}.
+  Variant tau (T: Type) : Type -> Type := mk_tau : tau T unit.
+  
+  Context (* {N: (Type -> Type) -> bool} *)
+    {Er Ef: Type -> Type} {T R : Type}.
 
   (** The type [itree] is defined as the final coalgebra ("greatest
       fixed point") of the functor [itreeF]. *)
   Variant itreeF (itree : Type) :=
   | RetF (r : R)
-  | TauF (t : itree)
-  | VisF {X : Type} (e : E X) (k : X -> itree)
+  | VisF {X : Type} (e : (tau T +' Er +' Ef) X) (k : X -> itree)
   .
 
+Definition TauF (itree : Type) (t : itree) : itreeF itree :=
+  VisF (inl1 (@mk_tau T)) (fun _ => t).
+  
   (** We define non-recursive types such as [itreeF] using the [Variant]
       command. The main practical difference from [Inductive] is that
       [Variant] does not generate any induction schemes (which are
@@ -64,19 +70,20 @@ Bind Scope itree_scope with itree.
 Delimit Scope itree_scope with itree.
 Local Open Scope itree_scope.
 
-Arguments itree _ _ : clear implicits.
-Arguments itreeF _ _ : clear implicits.
+Arguments itree _ _ _ _ : clear implicits.
+Arguments itreeF _ _ _ _ _ : clear implicits.
 
 Create HintDb itree.
 (* end hide *)
 
 (** An [itree'] is a "forced" [itree]. It is the type of inputs
     of [go], and outputs of [observe]. *)
-Notation itree' E R := (itreeF E R (itree E R)).
+Notation itree' Er Ef T R := (itreeF Er Ef T R (itree Er Ef T R)).
 
 (** We wrap the primitive projection [_observe] in a function
     [observe]. *)
-Definition observe {E R} (t : itree E R) : itree' E R := @_observe E R t.
+Definition observe {Er Ef T R} (t : itree Er Ef T R) :
+  itree' Er Ef T R := @_observe Er Ef T R t.
 
 (** Note that when [_observe] appears unapplied in an expression,
     it is implicitly wrapped in a function. However, there is no
@@ -96,8 +103,14 @@ Definition observe {E R} (t : itree E R) : itree' E R := @_observe E R t.
     particular case, this is [ITree.trigger].)
 *)
 Notation Ret x := (go (RetF x)).
-Notation Tau t := (go (TauF t)).
 Notation Vis e k := (go (VisF e k)).
+Notation Tau t := (go (TauF t)).
+
+(*
+Definition Tau {Er Ef: Type -> Type} {T R}
+  (t : itree Er Ef T R) : itree Er Ef T R := go (TauF t).
+  Vis (inl1 (@mk_tau T)) (fun _ => t).
+*)
 
 (** ** Main operations on [itree] *)
 
@@ -154,24 +167,25 @@ Module ITree.
    In particular, this allows us to nest [bind] in other cofixpoints,
    as long as the recursive occurences are in the continuation
    (i.e., this makes it easy to define tail-recursive functions). *)
-Definition subst {E : Type -> Type} {T U : Type} (k : T -> itree E U)
-  : itree E T -> itree E U :=
-  cofix _subst (u : itree E T) : itree E U :=
+  Definition subst {Er Ef : Type -> Type} {T U1 U2 : Type}
+    (k : U1 -> itree Er Ef T U2)
+  : itree Er Ef T U1 -> itree Er Ef T U2 :=
+  cofix _subst (u : itree Er Ef T U1) : itree Er Ef T U2 :=
     match observe u with
     | RetF r => k r
-    | TauF t => Tau (_subst t)
     | VisF e h => Vis e (fun x => _subst (h x))
     end.
 
-Definition bind {E : Type -> Type} {T U : Type} (u : itree E T) (k : T -> itree E U)
-  : itree E U :=
+  Definition bind {Er Ef : Type -> Type} {T U1 U2 : Type}
+    (u : itree Er Ef T U1) (k : U1 -> itree Er Ef T U2)
+  : itree Er Ef T U2 :=
   subst k u.
 
 (** Monadic composition of continuations (i.e., Kleisli composition).
  *)
-Definition cat {E T U V}
-           (k : T -> itree E U) (h : U -> itree E V) :
-  T -> itree E V :=
+Definition cat {Er Ef T U1 U2 U3}
+           (k : U1 -> itree Er Ef T U2) (h : U2 -> itree Er Ef T U3) :
+  U1 -> itree Er Ef T U3 :=
   fun t => bind (k t) h.
 
 (** [iter]: See [Basics.Basics.MonadIter]. *)
@@ -189,9 +203,11 @@ Notation on_left lr l t :=
 
 (* Note: here we must be careful to call [iter_ l] under [Tau] to avoid an eager
    infinite loop if [step i] is always of the form [Ret (inl _)] (cf. issue #182). *)
-Definition iter {E : Type -> Type} {R I: Type}
-           (step : I -> itree E (I + R)) : I -> itree E R :=
-  cofix iter_ i := bind (step i) (fun lr => on_left lr l (Tau (iter_ l))).
+Definition iter {Er Ef : Type -> Type} {T R I: Type}
+  (step : I -> itree Er Ef T (I + R)) :
+  I -> itree Er Ef T R :=
+  cofix iter_ i := bind (step i)
+                     (fun lr => on_left lr l (Tau (iter_ l))).
 
 (* note(gmm): There needs to be generic automation for monads to simplify
  * using the monad laws up to a setoid.
@@ -202,31 +218,36 @@ Definition iter {E : Type -> Type} {R I: Type}
  *)
 
 (** Functorial map ([fmap] in Haskell) *)
-Definition map {E R S} (f : R -> S)  (t : itree E R) : itree E S :=
+Definition map {Er Ef T R S} (f : R -> S)  (t : itree Er Ef T R) :
+  itree Er Ef T S :=
   bind t (fun x => Ret (f x)).
 
 (** Atomic itrees triggering a single event. *)
-Definition trigger {E : Type -> Type} : E ~> itree E :=
-  fun R e => Vis e (fun x => Ret x).
+Definition trigger {Er Ef : Type -> Type} {T} : Er +' Ef ~> itree Er Ef T :=
+  fun R e => Vis (inr1 e) (fun x => Ret x).
+
+Definition tau_trigger {Er Ef : Type -> Type} {T} : itree Er Ef T unit :=
+  Vis (inl1 (@mk_tau T)) (fun x => Ret x).
 
 (** Ignore the result of a tree. *)
-Definition ignore {E R} : itree E R -> itree E unit :=
+Definition ignore {Er Ef T R} : itree Er Ef T R -> itree Er Ef T unit :=
   map (fun _ => tt).
 
 (** Infinite taus. *)
-CoFixpoint spin {E R} : itree E R := Tau spin.
+CoFixpoint spin {Er Ef T R} : itree Er Ef T R := Tau spin.
 
 (** Repeat a computation infinitely. *)
-Definition forever {E R S} (t : itree E R) : itree E S :=
+Definition forever {Er Ef T R S} (t : itree Er Ef T R) : itree Er Ef T S :=
   cofix forever_t := bind t (fun _ => Tau (forever_t)).
 
 Ltac fold_subst :=
   repeat (change (ITree.subst ?k ?t) with (ITree.bind t k)).
 
 Ltac fold_monad :=
-  repeat (change (@ITree.bind ?E) with (@Monad.bind (itree E) _));
-  repeat (change (go (@RetF ?E _ _ _ ?r)) with (@Monad.ret (itree E) _ _ r));
-  repeat (change (@ITree.map ?E) with (@Functor.fmap (itree E) _)).
+  repeat (change (@ITree.bind ?Er ?Ef ?T) with (@Monad.bind (itree Er Ef T) _));
+  repeat (change (go (@RetF ?Er ?Ef ?T _ _ _ ?r))
+      with (@Monad.ret (itree Er Ef T) _ _ r));
+  repeat (change (@ITree.map ?Er ?Ef ?T) with (@Functor.fmap (itree Er Ef T) _)).
 
 End ITree.
 
@@ -256,24 +277,25 @@ End ITreeNotations.
 
 (** ** Instances *)
 
-#[global] Instance Functor_itree {E} : Functor (itree E) :=
-{ fmap := @ITree.map E }.
+#[global] Instance Functor_itree {Er Ef T} : Functor (itree Er Ef T) :=
+{ fmap := @ITree.map Er Ef T }.
 
 (* Instead of [pure := @Ret E], [ret := @Ret E], we eta-expand
    [pure] and [ret] to make the extracted code respect OCaml's
    value restriction. *)
-#[global] Instance Applicative_itree {E} : Applicative (itree E) :=
+#[global] Instance Applicative_itree {Er Ef T} :
+  Applicative (itree Er Ef T) :=
 { pure := fun _ x => Ret x
 ; ap := fun _ _ f x =>
           ITree.bind f (fun f => ITree.bind x (fun x => Ret (f x)))
 }.
 
-#[global] Instance Monad_itree {E} : Monad (itree E) :=
+#[global] Instance Monad_itree {Er Ef T} : Monad (itree Er Ef T) :=
 {| ret := fun _ x => Ret x
-;  bind := @ITree.bind E
+;  bind := @ITree.bind Er Ef T
 |}.
 
-#[global] Instance MonadIter_itree {E} : MonadIter (itree E) :=
+#[global] Instance MonadIter_itree {Er Ef T} : MonadIter (itree Er Ef T) :=
   fun _ _ => ITree.iter.
 
 (** ** Tactics *)
@@ -305,13 +327,75 @@ Ltac desobs t H := destruct (observe t) eqn:H.
 (** ** Compute with fuel *)
 
 (** Remove [Tau]s from the front of an [itree]. *)
-Fixpoint burn (n : nat) {E R} (t : itree E R) :=
+Lemma burn_PM (n : nat) {Er Ef : Type -> Type} {T R}
+  (t: itree Er Ef T R) : itree Er Ef T R.
+  induction n.
+  exact t.
+  destruct (observe t).
+  exact (Ret r).
+  destruct e.
+  { inversion t0; subst.
+    exact (k tt).
+  }
+  exact (Vis (inr1 s) k).
+Defined.
+
+Definition tau_interp_PM {Er Ef : Type -> Type} {T R}
+  X e k (t: itree Er Ef T R) (E: observe t = @VisF _ _ _ _ _ X (inl1 e) k) :
+  itree Er Ef T R.
+  destruct e.
+  exact (k tt).
+Defined.  
+
+Definition tau_interp {Er Ef : Type -> Type} {T R}
+  {X e k} (t: itree Er Ef T R) (E: observe t = @VisF _ _ _ _ _ X (inl1 e) k) :
+  itree Er Ef T R :=
+ match e as t0 in (tau _ T0)
+   return (forall k0 : T0 -> itree Er Ef T R,
+              observe t = VisF (inl1 t0) k0 -> itree Er Ef T R) with
+ | mk_tau => fun (k0 : unit -> itree Er Ef T R)
+                 (_ : observe t = VisF (inl1 mk_tau) k0) => k0 tt
+ end k E.
+
+Definition tauF_interp {Er Ef : Type -> Type} {T R}
+  {X e k} (t: itree' Er Ef T R) (E: t = @VisF _ _ _ _ _ X (inl1 e) k) :
+  itree Er Ef T R
+  :=
+ match e as t0 in (tau _ T0)
+   return (forall k0 : T0 -> itree Er Ef T R,
+              t = VisF (inl1 t0) k0 -> itree Er Ef T R) with
+ | mk_tau => fun (k0 : unit -> itree Er Ef T R)
+                 (_ : t = VisF (inl1 mk_tau) k0) => k0 tt
+ end k E.
+
+Fixpoint burn (n : nat) {Er Ef : Type -> Type} {T R}
+  (t: itree Er Ef T R) : itree Er Ef T R :=
   match n with
   | O => t
   | S n =>
     match observe t with
-    | RetF r => Ret r
-    | VisF e k => Vis e k
-    | TauF t' => burn n t'
-    end
-  end.
+    | RetF r => Ret r 
+    | VisF (inr1 t1) k0 => Vis (inr1 t1) k0
+    | @VisF _ _ _ _ _ X0 (inl1 t1) k0 =>
+        @tauF_interp _ _ _ _ _ _ _ (VisF (inl1 t1) k0) eq_refl 
+    end end.
+
+Fixpoint burn' (n : nat) {Er Ef : Type -> Type} {T R}
+  (t: itree Er Ef T R) : itree Er Ef T R :=
+  match n with
+  | O => t
+  | S n =>
+    match observe t with
+    | RetF r => Ret r 
+    | VisF (inr1 t1) k0 => Vis (inr1 t1) k0
+    | @VisF _ _ _ _ _ X0 (inl1 t1) k0 =>
+         match t1 in (tau _ T0) return (T0 = X0 -> itree Er Ef T R) with
+         | mk_tau => fun H : (unit :> Type) = X0 => 
+                       (eq_rect (unit :> Type)
+                          (fun X1 : Type =>
+                           tau T X1 ->
+                           (X1 -> itree Er Ef T R) -> itree Er Ef T R)
+                          (fun (_ : tau T unit) (k1 : unit -> itree Er Ef T R)
+                           => k1 tt) X0 H t1 k0) end eq_refl
+    end end.
+

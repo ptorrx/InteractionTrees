@@ -37,7 +37,8 @@ From ExtLib Require Import
 From ITree Require Import
      Basics.Basics
      Core.ITreeDefinition
-     Indexed.Relation.
+     Indexed.Relation
+     Indexed.Sum.
 (* end hide *)
 
 (** ** Translate *)
@@ -57,36 +58,38 @@ From ITree Require Import
 
 (** A plain event morphism [E ~> F] defines an itree morphism
     [itree E ~> itree F]. *)
-Definition translateF {E F R} (h : E ~> F) (rec: itree E R -> itree F R) (t : itreeF E R _) : itree F R  :=
+Definition translateF {Er Ef Fr Ff T R}
+ (h : (tau T +' Er +' Ef) ~> (tau T +' Fr +' Ff))
+ (rec: itree Er Ef T R -> itree Fr Ff T R)
+ (t : itreeF Er Ef T R _) : itree Fr Ff T R  :=
   match t with
   | RetF x => Ret x
-  | TauF t => Tau (rec t)
   | VisF e k => Vis (h _ e) (fun x => rec (k x))
   end.
 
-Definition translate {E F} (h : E ~> F)
-  : itree E ~> itree F
+Definition translate {Er Ef Fr Ff T}
+  (h : (tau T +' Er +' Ef) ~> (tau T +' Fr +' Ff))                     
+  : itree Er Ef T ~> itree Fr Ff T
   := fun R => cofix translate_ t := translateF h translate_ (observe t).
 
-Arguments translate {E F} & h [T].
+Arguments translate {Er Ef Fr Ff T} & h [T0].
 
 (** ** Interpret *)
 
 (** An event handler [E ~> M] defines a monad morphism
     [itree E ~> M] for any monad [M] with a loop operator. *)
 
-Definition interp {E M : Type -> Type}
+Definition interp {Er Ef M : Type -> Type} {T}
            {FM : Functor M} {MM : Monad M} {IM : MonadIter M}
-           (h : E ~> M) :
-  itree E ~> M := fun R =>
+           (h : (tau T +' Er +' Ef) ~> M) :
+  itree Er Ef T ~> M := fun R =>
   iter (fun t =>
     match observe t with
     | RetF r => ret (inr r)
-    | TauF t => ret (inl t)
     | VisF e k => fmap (fun x => inl (k x)) (h _ e)
     end).
 (* TODO: this does a map, and aloop does a bind. We could fuse those
    by giving aloop a continuation to compose its bind with.
    (coyoneda...) *)
 
-Arguments interp {E M FM MM IM} & h [T].
+Arguments interp {Er Ef M T FM MM IM} & h [T0].
