@@ -24,7 +24,7 @@ Set Primitive Projections.
 
 Section itree.
 
-  Variant tau (T: Type) : Type -> Type := mk_tau : tau T unit.
+  Variant tau (T: Type) : Type -> Type := mk_tau (u: unit + T) : tau T unit.
   
   Context (* {N: (Type -> Type) -> bool} *)
     {Er Ef: Type -> Type} {T R : Type}.
@@ -36,8 +36,11 @@ Section itree.
   | VisF {X : Type} (e : (tau T +' Er +' Ef) X) (k : X -> itree)
   .
 
-Definition TauF (itree : Type) (t : itree) : itreeF itree :=
-  VisF (inl1 (@mk_tau T)) (fun _ => t).
+Definition GTauF (itree : Type) (u: unit + T) (d : itree) : itreeF itree :=
+  VisF (inl1 (mk_tau u)) (fun _ => d).
+
+Definition TauF (itree : Type) (d : itree) : itreeF itree :=
+  GTauF (inl tt) d.
   
   (** We define non-recursive types such as [itreeF] using the [Variant]
       command. The main practical difference from [Inductive] is that
@@ -104,6 +107,7 @@ Definition observe {Er Ef T R} (t : itree Er Ef T R) :
 *)
 Notation Ret x := (go (RetF x)).
 Notation Vis e k := (go (VisF e k)).
+Notation GTau u t := (go (GTauF u t)).
 Notation Tau t := (go (TauF t)).
 
 (*
@@ -227,7 +231,7 @@ Definition trigger {Er Ef : Type -> Type} {T} : Er +' Ef ~> itree Er Ef T :=
   fun R e => Vis (inr1 e) (fun x => Ret x).
 
 Definition tau_trigger {Er Ef : Type -> Type} {T} : itree Er Ef T unit :=
-  Vis (inl1 (@mk_tau T)) (fun x => Ret x).
+  Vis (inl1 (mk_tau (inl tt))) (fun x => Ret x).
 
 (** Ignore the result of a tree. *)
 Definition ignore {Er Ef T R} : itree Er Ef T R -> itree Er Ef T unit :=
@@ -353,8 +357,8 @@ Definition tau_interp {Er Ef : Type -> Type} {T R}
  match e as t0 in (tau _ T0)
    return (forall k0 : T0 -> itree Er Ef T R,
               observe t = VisF (inl1 t0) k0 -> itree Er Ef T R) with
- | mk_tau => fun (k0 : unit -> itree Er Ef T R)
-                 (_ : observe t = VisF (inl1 mk_tau) k0) => k0 tt
+ | mk_tau x => fun (k0 : unit -> itree Er Ef T R)
+                 (_ : observe t = VisF (inl1 (mk_tau x)) k0) => k0 tt
  end k E.
 
 Definition tauF_interp {Er Ef : Type -> Type} {T R}
@@ -364,8 +368,8 @@ Definition tauF_interp {Er Ef : Type -> Type} {T R}
  match e as t0 in (tau _ T0)
    return (forall k0 : T0 -> itree Er Ef T R,
               t = VisF (inl1 t0) k0 -> itree Er Ef T R) with
- | mk_tau => fun (k0 : unit -> itree Er Ef T R)
-                 (_ : t = VisF (inl1 mk_tau) k0) => k0 tt
+ | mk_tau x => fun (k0 : unit -> itree Er Ef T R)
+                 (_ : t = VisF (inl1 (mk_tau x)) k0) => k0 tt
  end k E.
 
 Fixpoint burn (n : nat) {Er Ef : Type -> Type} {T R}
@@ -390,7 +394,7 @@ Fixpoint burn' (n : nat) {Er Ef : Type -> Type} {T R}
     | VisF (inr1 t1) k0 => Vis (inr1 t1) k0
     | @VisF _ _ _ _ _ X0 (inl1 t1) k0 =>
          match t1 in (tau _ T0) return (T0 = X0 -> itree Er Ef T R) with
-         | mk_tau => fun H : (unit :> Type) = X0 => 
+         | mk_tau x => fun H : (unit :> Type) = X0 => 
                        (eq_rect (unit :> Type)
                           (fun X1 : Type =>
                            tau T X1 ->

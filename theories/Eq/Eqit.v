@@ -30,6 +30,7 @@ From ITree Require Import
      Basics.Basics
      Basics.Utils
      Basics.HeterogeneousRelations
+     Indexed.Sum 
      Core.ITreeDefinition
      Eq.Paco2
      Eq.Shallow.
@@ -77,8 +78,28 @@ Section eqit.
       Then the desired equivalence relation is obtained by setting
       [RR := eq] (with [R1 = R2]).
    *)
-  Context {E : Type -> Type} {R1 R2 : Type} (RR : R1 -> R2 -> Prop).
+  Context {Er1 Er2 Ef1 Ef2 : Type -> Type} {T1 T2 R1 R2 : Type}
+    (RR : R1 -> R2 -> Prop).
 
+(*  Context (PREvA : forall A1 A2, (A1 -> A2 -> Prop) ->
+                                 ((Er1 A1 *
+                                   (tau T2 +' Er2 +' Ef2) A2)
+                                 +
+                                 ((tau T1 +' Er1 +' Ef1) A1 *
+                                  Er2 A2)
+                                 +
+                                 (tau T1 A1 * tau T2 A2)
+                                 +
+                                 (Ef1 A1 * Ef2 A2)) -> Prop    
+                                 ).
+*)
+
+  Context (PREf : forall A1 A2, (A1 -> A2 -> Prop) ->
+                                 Ef1 A1 -> Ef2 A2 -> Prop).
+
+  Context (PRTt : (unit + T1) -> (unit + T2) -> Prop).
+
+  
   (** We also need to do some gymnastics to work around the
       two-layered definition of [itree]. We first define a
       relation transformer [eqitF] as an indexed inductive type
@@ -89,69 +110,132 @@ Section eqit.
       pattern-matching is not allowed on [itree].
    *)
 
-  Inductive eqitF (b1 b2: bool) vclo (sim : itree E R1 -> itree E R2 -> Prop) :
-    itree' E R1 -> itree' E R2 -> Prop :=
-  | EqRet r1 r2
-       (REL: RR r1 r2):
-     eqitF b1 b2 vclo sim (RetF r1) (RetF r2)
-  | EqTau m1 m2
-        (REL: sim m1 m2):
-      eqitF b1 b2 vclo sim (TauF m1) (TauF m2)
-  | EqVis {u} (e : E u) k1 k2
-        (REL: forall v, vclo sim (k1 v) (k2 v) : Prop):
-      eqitF b1 b2 vclo sim (VisF e k1) (VisF e k2)
-  | EqTauL t1 ot2
+  Inductive eqitF (b1 b2 b3 b4: bool) vclo
+    (sim : itree Er1 Ef1 T1 R1 -> itree Er2 Ef2 T2 R2 -> Prop) :
+    itree' Er1 Ef1 T1 R1 -> itree' Er2 Ef2 T2 R2 -> Prop :=
+  | EqRet : forall (r1: R1) (r2: R2),
+     RR r1 r2 ->
+     eqitF b1 b2 b3 b4 vclo sim (RetF r1) (RetF r2)
+(*  | EqTau: forall (REL: PRTt T1 T2)   
+                  A1 A2
+                  (e1 : tau T1 A1)
+                  (e2: tau T2 A2)
+                  (k1: A1 -> itree Er1 Ef1 T1 R1)
+                  (k2: A2 -> itree Er2 Ef2 T2 R2),
+      (forall v1 v2, sim (k1 v1) (k2 v2) : Prop) ->
+      eqitF b1 b2 b3 b4 vclo sim (VisF (inl1 e1) k1) (VisF (inl1 e2) k2)
+*)
+  | EqTau: forall u1 u2 (REL: PRTt u1 u2) 
+                  (t1: itree Er1 Ef1 T1 R1)
+                  (t2: itree Er2 Ef2 T2 R2),
+      (sim t1 t2 : Prop) ->
+      eqitF b1 b2 b3 b4 vclo sim (GTauF u1 t1) (GTauF u2 t2)
+  | EqVis: forall A1 A2
+                  (LR: A1 -> A2 -> Prop)
+                  (e1 : Ef1 A1)
+                  (e2: Ef2 A2)
+                  (REL: PREf A1 A2 LR e1 e2)   
+                  (k1: A1 -> itree Er1 Ef1 T1 R1)
+                  (k2: A2 -> itree Er2 Ef2 T2 R2),
+      (forall v1 v2, LR v1 v2 -> vclo sim (k1 v1) (k2 v2) : Prop) ->
+      eqitF b1 b2 b3 b4 vclo sim
+        (VisF (inr1 (inr1 e1)) k1) (VisF (inr1 (inr1 e2)) k2)
+  | EqErrL: forall A (e1 : Er1 A)
+                   (k1: A -> itree Er1 Ef1 T1 R1)
+                   (ot2: itree' Er2 Ef2 T2 R2)
+                   (CHECK: b3),  
+      eqitF b1 b2 b3 b4 vclo sim (VisF (inr1 (inl1 e1)) k1) ot2
+  | EqErrR: forall A (e2 : Er2 A)
+                   (k2: A -> itree Er2 Ef2 T2 R2)
+                   (ot1: itree' Er1 Ef1 T1 R1)
+                   (CHECK: b4),  
+      eqitF b1 b2 b3 b4 vclo sim ot1 (VisF (inr1 (inl1 e2)) k2) 
+  | EqTauL: forall u1 (t1: itree Er1 Ef1 T1 R1) (ot2: itree' Er2 Ef2 T2 R2)
         (CHECK: b1)
-        (REL: eqitF b1 b2 vclo sim (observe t1) ot2):
-      eqitF b1 b2 vclo sim (TauF t1) ot2
+        (REL: eqitF b1 b2 b3 b4 vclo sim (observe t1) ot2),  
+      eqitF b1 b2 b3 b4 vclo sim (GTauF u1 t1) ot2 
+  | EqTauR: forall ot1 u2 t2
+        (CHECK: b2)
+        (REL: eqitF b1 b2 b3 b4 vclo sim ot1 (observe t2)), 
+      eqitF b1 b2 b3 b4 vclo sim ot1 (GTauF u2 t2).
+  Hint Constructors eqitF : itree.
+
+
+(*  
+  Inductive eqitF (b1 b2: bool) vclo
+    (sim : itree Er1 Ef1 T1 R1 -> itree Er2 Ef2 T2 R2 -> Prop) :
+    itree' Er1 Ef1 T1 R1 -> itree' Er2 Ef2 T2 R2 -> Prop :=
+  | EqRet : forall (r1: R1) (r2: R2),
+     RR r1 r2 ->
+     eqitF b1 b2 vclo sim (RetF r1) (RetF r2)
+  | EqVis: forall A1 A2
+                  (LR: A1 -> A2 -> Prop)
+                  (e1 : (tau T1 +' Er1 +' Ef1) A1)
+                  (e2: (tau T2 +' Er2 +' Ef2) A2)
+                  (REL: PREv A1 A2 LR e1 e2)   
+                  (k1: A1 -> itree Er1 Ef1 T1 R1)
+                  (k2: A2 -> itree Er2 Ef2 T2 R2),
+      (forall v1 v2, LR v1 v2 -> vclo sim (k1 v1) (k2 v2) : Prop) ->
+      eqitF b1 b2 vclo sim (VisF e1 k1) (VisF e2 k2)
+  | EqTauL : forall (t1: itree Er1 Ef1 T1 R1) (ot2: itree' Er2 Ef2 T2 R2)
+        (CHECK: b1)
+        (REL: eqitF b1 b2 vclo sim (observe t1) ot2),  
+      eqitF b1 b2 vclo sim (TauF t1) ot2 
   | EqTauR ot1 t2
         (CHECK: b2)
         (REL: eqitF b1 b2 vclo sim ot1 (observe t2)):
-      eqitF b1 b2 vclo sim ot1 (TauF t2)
-  .
+      eqitF b1 b2 vclo sim ot1 (TauF t2).
   Hint Constructors eqitF : itree.
-
-  Definition eqit_ b1 b2 vclo sim :
-    itree E R1 -> itree E R2 -> Prop :=
-    fun t1 t2 => eqitF b1 b2 vclo sim (observe t1) (observe t2).
+*)
+  
+  Definition eqit_ b1 b2 b3 b4 vclo sim :
+    itree Er1 Ef1 T1 R1 -> itree Er2 Ef2 T2 R2 -> Prop :=
+    fun t1 t2 => eqitF b1 b2 b3 b4 vclo sim (observe t1) (observe t2).
   Hint Unfold eqit_ : itree.
 
   (** [eqitF] and [eqit_] are both monotone. *)
 
-  Lemma eqitF_mono b1 b2 x0 x1 vclo vclo' sim sim'
-        (IN: eqitF b1 b2 vclo sim x0 x1)
+  Lemma eqitF_mono b1 b2 b3 b4 x0 x1 vclo vclo' sim sim'
+        (IN: eqitF b1 b2 b3 b4 vclo sim x0 x1)
         (MON: monotone2 vclo)
         (LEc: vclo <3= vclo')
         (LE: sim <2= sim'):
-    eqitF b1 b2 vclo' sim' x0 x1.
+    eqitF b1 b2 b3 b4 vclo' sim' x0 x1.
   Proof.
     intros. induction IN; eauto with itree.
   Qed.
 
-  Lemma eqit__mono b1 b2 vclo (MON: monotone2 vclo) : monotone2 (eqit_ b1 b2 vclo).
+  Lemma eqit__mono b1 b2 b3 b4 vclo (MON: monotone2 vclo) :
+    monotone2 (eqit_ b1 b2 b3 b4 vclo).
   Proof. do 2 red. intros. eapply eqitF_mono; eauto. Qed.
 
   Hint Resolve eqit__mono : paco.
 
-  Lemma eqit_idclo_mono: monotone2 (@id (itree E R1 -> itree E R2 -> Prop)).
+  Lemma eqit_idclo_mono:
+    monotone2 (@id (itree Er1 Ef1 T1 R1 -> itree Er2 Ef2 T2 R2 -> Prop)).
   Proof. unfold id. eauto. Qed.
 
   Hint Resolve eqit_idclo_mono : paco.
 
-  Definition eqit b1 b2 : itree E R1 -> itree E R2 -> Prop :=
-    paco2 (eqit_ b1 b2 id) bot2.
+  Definition eqit b1 b2 b3 b4 :
+    itree Er1 Ef1 T1 R1 -> itree Er2 Ef2 T2 R2 -> Prop :=
+    paco2 (eqit_ b1 b2 b3 b4 id) bot2.
 
   (** Strong bisimulation on itrees. If [eqit RR t1 t2],
       we say that [t1] and [t2] are (strongly) bisimilar. As hinted
       at above, bisimilarity can be intuitively thought of as
       equality. *)
 
-  Definition eq_itree := eqit false false.
+  Definition eq_itree := eqit false false false false.
 
-  Definition eutt := eqit true true.
+  Definition eutt := eqit true true false false.
 
-  Definition euttge := eqit true false.
+  Definition euttge := eqit true false false false.
 
+  Definition ceutt := eqit true true true false.
+
+  Definition ceuttge := eqit true false true false.
+  
 End eqit.
 
 (* begin hide *)
@@ -163,26 +247,159 @@ End eqit.
 #[global] Hint Unfold eq_itree : itree.
 #[global] Hint Unfold eutt : itree.
 #[global] Hint Unfold euttge : itree.
+#[global] Hint Unfold ceutt : itree.
+#[global] Hint Unfold ceuttge : itree.
 #[global] Hint Unfold id : itree.
 
-Lemma eqitF_inv_VisF_r {E R1 R2} (RR : R1 -> R2 -> Prop) {b1 b2 vclo sim}
-    t1 X2 (e2 : E X2) (k2 : X2 -> _)
-  : eqitF RR b1 b2 vclo sim t1 (VisF e2 k2) ->
-    (exists k1, t1 = VisF e2 k1 /\ forall v, vclo sim (k1 v) (k2 v)) \/
-    (b1 /\ exists t1', t1 = TauF t1' /\ eqitF RR b1 b2 vclo sim (observe t1') (VisF e2 k2)).
+Lemma eqitF_inv_VisF_r {Er1 Er2 Ef1 Ef2 T1 T2 R1 R2}
+  (RR : R1 -> R2 -> Prop)                      
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> Ef1 A1 -> Ef2 A2 -> Prop)
+  (PRTt : (unit + T1) -> (unit + T2) -> Prop) 
+  {b1 b2 b3 b4 vclo sim}
+  (t1: itree' Er1 Ef1 T1 R1) X2
+  (e2 : Ef2 X2) (k2 : X2 -> itree Er2 Ef2 T2 R2) :
+  eqitF RR PREf PRTt b1 b2 b3 b4 vclo sim t1 (VisF (inr1 (inr1 e2)) k2) ->
+    (exists X1 (LR: X1 -> X2 -> Prop)
+            (e1: Ef1 X1) k1,
+        t1 = VisF (inr1 (inr1 e1)) k1 /\ PREf X1 X2 LR e1 e2 /\
+          forall v1 v2, LR v1 v2 -> vclo sim (k1 v1) (k2 v2)) \/
+      (b1 /\ exists u1' t1', t1 = GTauF u1' t1' /\
+                           eqitF RR PREf PRTt b1 b2 b3 b4 vclo sim
+                             (observe t1') (VisF (inr1 (inr1 e2)) k2)) \/
+      (b3 /\ exists X1 (e1: Er1 X1) k1,
+        t1 = VisF (inr1 (inl1 e1)) k1).
 Proof.
+  intros.
+  destruct t1.
+  - inv H.
+  - destruct e.
+    + inv H.
+      dependent destruction H3.
+      dependent destruction H2.
+      right. left; split; eauto.
+      exists u1.
+      exists t1.
+      unfold GTauF; split; auto.
+    + destruct s.
+      * inv H.
+        dependent destruction H2.
+        dependent destruction H3.
+        right. right; split; auto.
+        exists X.
+        exists e.
+        exists k.
+        auto.
+      * inv H.
+        dependent destruction H3.
+        dependent destruction H5.
+        dependent destruction H6.
+        left.
+        exists X.
+        exists LR.
+        exists e.
+        exists k.
+        split; eauto.
+Qed.     
+      
+      
+(********************************************************************)
+    
+  
+
+Lemma eqitF_inv_VisF_r {Er1 Er2 Ef1 Ef2 T1 T2 R1 R2}
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> Ef1 A1 -> Ef2 A2 -> Prop))          (PRTt : Type -> Type -> Prop) 
+  (RR : R1 -> R2 -> Prop) {b1 b2 b3 b4 vclo sim}
+  t1 X2 (e2 : (Er2 +' Ef2) X2) (k2 : X2 -> _)
+  : eqitF RR PREv b1 b2 b3 b4 vclo sim t1 (VisF (inr1 e2) k2) ->
+    (exists X1 (LR: X1 -> X2 -> Prop)
+            (e1: (tau T1 +' Er1 +' Ef1) X1) k1,
+        t1 = VisF e1 k1 /\ PREf X1 X2 LR e1 (inr1 e2) /\
+          forall v1 v2, LR v1 v2 -> vclo sim (k1 v1) (k2 v2)) \/
+      (b1 /\ exists t1', t1 = TauF t1' /\
+               eqitF RR PREv b1 b2 b3 b4 vclo sim (observe t1') (VisF (inr1 e2) k2)).
+Proof.
+  intros.
+  destruct t1.
+  inv H.
+  destruct e.
+  2: { left.
+       inv H.
+       dependent destruction H2.
+       dependent destruction H3.
+       dependent destruction H5.
+       dependent destruction H6.
+       exists X.
+       exists LR.
+       exists (inr1 s).
+       exists k; eauto.
+  }
+  inv H.
+  dependent destruction H2.
+  dependent destruction H3.
+  dependent destruction H5.
+  dependent destruction H6.
+
+  2: { (* b1 is true *)
+       dependent destruction H2.
+       right.
+       split; eauto.
+       exists t1.
+       split; eauto.
+       unfold TauF; auto.
+       destruct t; auto.
+  }
+  
+  destruct e2.
+  2: { (* absurd from REL *)
+       left.
+       exists X.
+       exists LR.
+       exists (inl1 t).
+       exists k.
+       split; eauto. }
+
+  (* b1 is not true, corresponds to the spinning case *)
+  left.
+  exists X.
+  exists LR.
+  exists (inl1 t).
+  exists k.
+  split; eauto.
+Qed.
+  
+
+  
+
+
+
+  
   refine (fun H =>
-    match H in eqitF _ _ _ _ _ _ t2 return
+    match H in eqitF _ _ _ _ _ _ _ t2 return
       match t2 return Prop with
       | VisF e2 k2 => _
       | _ => True
       end
     with
-    | EqVis _ _ _ _ _ _ _ _ _ => _
+    | EqVis _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => _
     | _ => _
     end); try exact I.
   - left; eauto.
+    exists T.
+    exists P.
+    exists s.
+    exists i.
+    split; auto.
   - destruct i0; eauto.
+    remember i0 as j0.
+    
+    destruct j0; eauto.
+    admit.
+  - subst i2.
+
+    unfold TauF.
+    dependent destruction i0.
+    right.
+    eauto.
 Qed.
 
 Lemma eqitF_inv_VisF_weak {E R1 R2} (RR : R1 -> R2 -> Prop) {b1 b2 vclo sim}
