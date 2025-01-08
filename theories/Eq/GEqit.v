@@ -280,7 +280,39 @@ Proof.
       dependent destruction H4.
       eauto.
 Qed.
-                                 
+
+
+(*
+Lemma eqitF_inv_VisF_weak {E R1 R2} (RR : R1 -> R2 -> Prop)
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E A1 -> E A2 -> Prop)
+  (ErrorEvs: list (Type -> Type)) 
+  {b1 b2 b3 b4 vclo sim}
+    X1 (e1 : E X1) (k1 : X1 -> _) X2 (e2 : E X2) (k2 : X2 -> _)
+  : eqitF RR PREf ErrorEvs b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2) ->
+    exists p : X1 = X2, eqeq E p e1 e2 /\ pweqeq (vclo sim) p k1 k2.
+Proof.
+  Print pweqeq.
+  
+  
+  refine (fun H =>
+    match H in eqitF _ _ _ _ _ _ _ _ _ t1 t2 return
+      match t1, t2 return Prop with
+      | VisF e1 k1, VisF e2 k2 => _
+      | _, _ => True
+      end with
+    | EqVis _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => _
+    | _ => _
+    end); try exact I.
+  - inv H.
+    dependent destruction H3.
+    dependent destruction H5.
+    dependent destruction H6.
+    exists eq_refl; cbn; eauto.
+  - destruct i; exact I.
+Qed.
+*)
+
+
 (********************************************************************)
     
   

@@ -119,17 +119,15 @@ Section RuttF.
     - destruct i0; eauto.  
   Qed.
 
-(************************************************************)
-
-  
   Lemma ruttF_inv_VisF {sim}
       U1 U2 (e1 : E1 U1) (e2 : E2 U2) (k1 : U1 -> _) (k2 : U2 -> _)
-    : ruttF sim (VisF e1 k1) (VisF e2 k2) ->
+    : not (In E1 ErrorEvs) ->
+      ruttF sim (VisF e1 k1) (VisF e2 k2) ->
       forall v1 v2, RAns e1 v1 e2 v2 -> sim (k1 v1) (k2 v2).
   Proof.
-    intros H. dependent destruction H. assumption.
+    intros H H0. dependent destruction H0. assumption.
+    intuition.    
   Qed.
-
 
   Ltac unfold_rutt :=
     (try match goal with [|- rutt_ _ _ _ _ _ _ _ ] => red end);
@@ -163,6 +161,10 @@ Tactic Notation "fold_ruttF" hyp(H) :=
   end.
 
 #[global] Hint Resolve rutt_monot : paco.
+
+  
+(************************************************************)
+
 
 Section ConstructionInversion.
 Variables (E1 E2: Type -> Type).
