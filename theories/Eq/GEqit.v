@@ -39,6 +39,51 @@ Require Import List.
 
 Local Open Scope itree_scope.
 
+(*****************************************************************)
+
+Definition cast {X1 X2} (p: X1 = X2) (x: X1) : X2 :=
+  match p with eq_refl => x end.  
+
+Definition cast_rel {X1 X2} (p: X1 = X2) (x1: X1) (x2: X2) : Prop :=
+  x2 = cast p x1. 
+
+Definition ev_cast {E1 E2: Type -> Type} (q: forall X, E1 X = E2 X)
+ {X1 X2} (p: X1 = X2) (e: E1 X1) : E2 X2 :=
+ match p return (E2 _) with
+ | eq_refl => match q X1 in (_ = T0) return T0 with
+              | eq_refl => e
+              end end.
+
+Definition ev_cast_rel {E1 E2: Type -> Type} 
+  (q: forall X, E1 X = E2 X)
+  {X1 X2} (p: X1 = X2) (e1: E1 X1) (e2: E2 X2) : Prop :=
+  e2 = ev_cast q p e1.
+
+Definition forall_eq {A} (f1 f2: A -> Type) : Prop :=
+  forall a, f1 a = f2 a.
+
+Definition forall_id {A} (f: A -> Type) : forall a, f a = f a :=
+  fun a => eq_refl.
+
+Definition ev_id_cast_rel {E: Type -> Type}
+  {X1 X2} (p: X1 = X2) (e1: E X1) (e2: E X2) : Prop :=
+  ev_cast_rel (forall_id E) p e1 e2.
+
+Definition abs_ev_cast_rel {E1 E2: Type -> Type}
+  (q: forall X1 X2, E1 X1 = E2 X2)
+  {X1 X2} (e1: E1 X1) (e2: E2 X2) : Prop :=
+  cast_rel (q X1 X2) e1 e2.   
+
+(*
+Definition hhh {E: Type -> Type}  
+  {A1 A2} (LR: A1 -> A2 -> Prop) (e1: E A1) (e2: E A2) : Prop :=
+
+Definition hhh {E1 E2: Type -> Type} (q: forall X, E1 X = E2 X)  
+  {A1 A2} (LR: A1 -> A2 -> Prop) (e1: E1 A1) (e2: E2 A2) : Prop :=
+*)  
+          
+(******************************************************************)
+
 (* TODO: Send to paco *)
 #[global] Instance Symmetric_bot2 (A : Type) : @Symmetric A bot2.
 Proof. auto. Qed.
@@ -102,8 +147,8 @@ Section eqit.
     (sim : itree E1 R1 -> itree E2 R2 -> Prop) :
     itree' E1 R1 -> itree' E2 R2 -> Prop :=
   | EqRet : forall (r1: R1) (r2: R2),
-     RR r1 r2 ->
-     eqitF b1 b2 b3 b4 vclo sim (RetF r1) (RetF r2)
+      RR r1 r2 ->
+      eqitF b1 b2 b3 b4 vclo sim (RetF r1) (RetF r2)
   | EqTau: forall (t1: itree E1 R1) (t2: itree E2 R2),
       (sim t1 t2 : Prop) ->
       eqitF b1 b2 b3 b4 vclo sim (TauF t1) (TauF t2)
@@ -115,8 +160,7 @@ Section eqit.
                   (k1: A1 -> itree E1 R1)
                   (k2: A2 -> itree E2 R2),
       (forall v1 v2, LR v1 v2 -> vclo sim (k1 v1) (k2 v2) : Prop) ->
-      eqitF b1 b2 b3 b4 vclo sim
-        (VisF e1 k1) (VisF e2 k2)
+      eqitF b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2)
   | EqErrL: forall A (e1 : E1 A)
                    (k1: A -> itree E1 R1)
                    (ot2: itree' E2 R2)
@@ -281,34 +325,140 @@ Proof.
       eauto.
 Qed.
 
-
-(*
-Lemma eqitF_inv_VisF_weak {E R1 R2} (RR : R1 -> R2 -> Prop)
-  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E A1 -> E A2 -> Prop)
+Lemma eqitF_inv_VisF_weak {E1 E2 R1 R2} (RR : R1 -> R2 -> Prop)
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E1 A1 -> E2 A2 -> Prop)
   (ErrorEvs: list (Type -> Type)) 
   {b1 b2 b3 b4 vclo sim}
-    X1 (e1 : E X1) (k1 : X1 -> _) X2 (e2 : E X2) (k2 : X2 -> _)
+    X1 (e1 : E1 X1) (k1 : X1 -> _) X2 (e2 : E2 X2) (k2 : X2 -> _)
   : eqitF RR PREf ErrorEvs b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2) ->
-    exists p : X1 = X2, eqeq E p e1 e2 /\ pweqeq (vclo sim) p k1 k2.
+    (exists LR, PREf X1 X2 LR e1 e2 /\
+            forall (v1 : X1) (v2 : X2), LR v1 v2 -> vclo sim (k1 v1) (k2 v2))
+    \/ (b3 /\ In E1 ErrorEvs) \/ (b4 /\ In E2 ErrorEvs).
 Proof.
-  Print pweqeq.
+  intros.
+  inv H; dependent destruction H3.
+  dependent destruction H5.
+  dependent destruction H6.
+  left; exists LR; eauto.
+  right; left; auto.
+  dependent destruction H4.
+  right; right; auto.
+Qed.
+
+Lemma eqitF_inv_VisF {E1 E2 R1 R2} (RR : R1 -> R2 -> Prop)
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E1 A1 -> E2 A2 -> Prop)
+  (ErrorEvs: list (Type -> Type)) 
+  {b1 b2 b3 b4 vclo sim}
+    X1 (e1 : E1 X1) X2 (e2 : E2 X2) (k1 : X1 -> _) (k2 : X2 -> _)
+  : eqitF RR PREf ErrorEvs b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2) ->
+    (exists LR, forall x1 x2, LR x1 x2 -> vclo sim (k1 x1) (k2 x2))
+    \/ (b3 /\ In E1 ErrorEvs) \/ (b4 /\ In E2 ErrorEvs).  
+Proof.
+  intros H. dependent destruction H; eauto. 
+Qed.
+ 
+Lemma eqitF_VisF_gen {E1 E2 R1 R2} {RR : R1 -> R2 -> Prop}
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E1 A1 -> E2 A2 -> Prop)
+  (ErrorEvs: list (Type -> Type)) 
+  {b1 b2 b3 b4 vclo sim} 
+  {X1 X2} (P: X1 -> X2 -> Prop)
+  (e1: E1 X1) (k1: X1 -> _) (e2: E2 X2) (k2: X2 -> _) :
+   PREf X1 X2 P e1 e2 -> (forall v1 v2, P v1 v2 -> vclo sim (k1 v1) (k2 v2)) -> 
+   eqitF RR PREf ErrorEvs
+     b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2).
+  intros.
+  econstructor; eauto.
+Qed.  
   
+Lemma eqitF_VisF_gen' {E1 E2 R1 R2} {RR : R1 -> R2 -> Prop}
+  (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E1 A1 -> E2 A2 -> Prop)
+  (ErrorEvs: list (Type -> Type)) 
+  {b1 b2 b3 b4 vclo sim} 
+  {X1 X2} (P: X1 = X2)
+  (e1: E1 X1) (k1: X1 -> _) (e2: E2 X2) (k2: X2 -> _) :
+  PREf X1 X2 (cast_rel P) e1 e2 ->
+  (forall v1 v2, cast_rel P v1 v2 -> vclo sim (k1 v1) (k2 v2)) -> 
+   eqitF RR PREf ErrorEvs
+     b1 b2 b3 b4 vclo sim (VisF e1 k1) (VisF e2 k2).
+  intros.
+  econstructor; eauto.
+Qed.  
+
+Check @eqit_.
+
+Ltac unfold_eqit :=
+  (try match goal with [|- eqit_ _ _ _ _ _ _ _ _ _ _ _ _ _ ] => red end);
+  (repeat match goal with [H: eqit_ _ _ _ _ _ _ _ _ _ _ _ _ _ |- _ ] =>
+                            red in H end).
+
+Lemma fold_eqitF:
+  forall {E1 E2 R1 R2}
+    (PREf : forall A1 A2, (A1 -> A2 -> Prop) -> E1 A1 -> E2 A2 -> Prop)
+    (ErrorEvs: list (Type -> Type)) 
+    (RR: R1 -> R2 -> Prop)
+    b1 b2 b3 b4 (t1 : itree E1 R1) (t2 : itree E2 R2) ot1 ot2,
+    eqitF RR PREf ErrorEvs b1 b2 b3 b4
+      id (upaco2 (eqit_ RR PREf ErrorEvs b1 b2 b3 b4 id) bot2) ot1 ot2 ->
+    ot1 = observe t1 ->
+    ot2 = observe t2 ->
+    eqit RR PREf ErrorEvs b1 b2 b3 b4 t1 t2.
+Proof.
+  intros * eq -> ->; pfold; auto.
+Qed.
+
+(* Tactic to fold eqitF automatically by expanding observe if needed *)
+Tactic Notation "fold_eqitF" hyp(H) :=
+  try punfold H;
+  try red in H;
+  match type of H with
+  | eqitF ?_RR ?_PREf ?_ErrorEvs ?_B1 ?_B2 ?_B3 ?_B4
+      id (upaco2 (eqit_ ?_RR ?_PREf ?_ErrorEvs ?_B1 ?_B2 ?_B3 ?_B4 id) bot2)
+      ?_OT1 ?_OT2 =>
+      match _OT1 with
+      | observe _ => idtac
+      | ?_OT1 => change _OT1 with (observe (go _OT1)) in H
+      end;
+      match _OT2 with
+      | observe _ => idtac
+      | ?_OT2 => change _OT2 with (observe (go _OT2)) in H
+      end;
+      eapply fold_eqitF in H; [| eauto | eauto]
+  end.
+
+
+(*
+Check @eqitF.
+Check @eq_rel.
+Print Proper.
+
+Locate "==>".
+
+About respectful.
+Print respectful.
+Print respectful_hetero.
+Print Proper.
+Check @eq_rel.
+Print relationH.
+
+#[global] Instance eqitF_Proper_R {E1 E2 : Type -> Type} {R1 R2:Type} :
+
   
-  refine (fun H =>
-    match H in eqitF _ _ _ _ _ _ _ _ _ t1 t2 return
-      match t1, t2 return Prop with
-      | VisF e1 k1, VisF e2 k2 => _
-      | _, _ => True
-      end with
-    | EqVis _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => _
-    | _ => _
-    end); try exact I.
-  - inv H.
-    dependent destruction H3.
-    dependent destruction H5.
-    dependent destruction H6.
-    exists eq_refl; cbn; eauto.
-  - destruct i; exact I.
+  Proper ((@eq_rel R1 R2) ==>
+          (eq ==> eq ==> @eq_rel R1 R2) ==>
+            eq ==> eq ==> eq ==> eq ==> eq ==> 
+            (eq_rel ==> eq_rel) ==> eq_rel ==> eq_rel)
+    (@eqitF E1 E2 R1 R2).
+Proof.
+  repeat red.
+  intros. subst. split; unfold subrelationH; intros.
+  - induction H0; auto with itree.
+    econstructor. apply H. assumption.
+    econstructor. apply H3. assumption.
+    econstructor. intros. specialize (REL v). specialize (H2 x3 y3). apply H2 in H3. apply H3. assumption.
+  - induction H0; auto with itree.
+    econstructor. apply H. assumption.
+    econstructor. apply H3. assumption.
+    econstructor. intros. specialize (REL v). specialize (H2 x3 y3). apply H2 in H3. apply H3. assumption.
 Qed.
 *)
 
