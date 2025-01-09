@@ -163,29 +163,28 @@ Tactic Notation "fold_ruttF" hyp(H) :=
 #[global] Hint Resolve rutt_monot : paco.
 
   
-(************************************************************)
-
-
 Section ConstructionInversion.
 Variables (E1 E2: Type -> Type).
 Variables (R1 R2: Type).
 Variable (REv: forall T1 T2, E1 T1 -> E2 T2 -> Prop).
 Variable (RAns: forall T1 T2, E1 T1 -> T1 -> E2 T2 -> T2 -> Prop).
 Variable (RR: R1 -> R2 -> Prop).
+Variable (ErrorEvs : list (Type -> Type)).
 
 Lemma rutt_Ret r1 r2:
   RR r1 r2 ->
-  @rutt E1 E2 R1 R2 REv RAns RR (Ret r1: itree E1 R1) (Ret r2: itree E2 R2).
+  @rutt E1 E2 R1 R2 REv RAns RR ErrorEvs
+    (Ret r1: itree E1 R1) (Ret r2: itree E2 R2).
 Proof. intros. pstep; constructor; auto. Qed.
 
 Lemma rutt_inv_Ret r1 r2:
-  rutt REv RAns RR (Ret r1) (Ret r2) -> RR r1 r2.
+  rutt REv RAns RR ErrorEvs (Ret r1) (Ret r2) -> RR r1 r2.
 Proof.
   intros. punfold H. inv H. eauto.
 Qed.
 
 Lemma rutt_inv_Ret_l r1 t2:
-  rutt REv RAns RR (Ret r1) t2 -> exists r2, t2 ≳ Ret r2 /\ RR r1 r2.
+  rutt REv RAns RR ErrorEvs (Ret r1) t2 -> exists r2, t2 ≳ Ret r2 /\ RR r1 r2.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t2). remember (RetF r1) as ot1; revert Heqot1.
@@ -196,18 +195,22 @@ Proof.
 Qed.
 
 Lemma rutt_inv_Ret_r t1 r2:
-  rutt REv RAns RR t1 (Ret r2) -> exists r1, t1 ≳ Ret r1 /\ RR r1 r2.
+  rutt REv RAns RR ErrorEvs t1 (Ret r2) ->
+  (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/ In E1 ErrorEvs.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t1). remember (RetF r2) as ot2; revert Heqot2.
   induction Hrutt; intros; try discriminate.
-  - inversion Heqot2; subst. exists r1. split; [reflexivity|auto].
-  - destruct (IHHrutt Heqot2) as [r1 [H1 H2]]. exists r1; split; auto.
+  - inversion Heqot2; subst. left. exists r1. split; [reflexivity|auto].
+  - right; auto.  
+  - destruct (IHHrutt Heqot2) as [[r1 [H1 H2]] | H].
+    left. exists r1; split; auto.
     rewrite <- itree_eta in H1. now rewrite tau_euttge.
+    right; auto.
 Qed.
 
 Lemma rutt_inv_Tau_l t1 t2 :
-  rutt REv RAns RR (Tau t1) t2 -> rutt REv RAns RR t1 t2.
+  rutt REv RAns RR ErrorEvs (Tau t1) t2 -> rutt REv RAns RR ErrorEvs t1 t2.
 Proof.
   intros. punfold H. red in H. simpl in *.
   remember (TauF t1) as tt1. genobs t2 ot2.
@@ -218,13 +221,16 @@ Proof.
 Qed.
 
 Lemma rutt_add_Tau_l t1 t2 :
-  rutt REv RAns RR t1 t2 -> rutt REv RAns RR (Tau t1) t2.
+  rutt REv RAns RR ErrorEvs t1 t2 -> rutt REv RAns RR ErrorEvs (Tau t1) t2.
 Proof.
   intros. pfold. red. cbn. constructor. pstep_reverse.
 Qed.
 
+
+(************************************************************)
+
 Lemma rutt_inv_Tau_r t1 t2 :
-  rutt REv RAns RR t1 (Tau t2) -> rutt REv RAns RR t1 t2.
+  rutt REv RAns RR ErrorEvs t1 (Tau t2) -> rutt REv RAns RR ErrorEvs t1 t2.
 Proof.
   intros. punfold H. red in H. simpl in *.
   pstep. red. remember (TauF t2) as tt2 eqn:Ett2 in H.
