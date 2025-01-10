@@ -398,3 +398,9 @@ Qed.
 Proof.
   apply grutt_cong_euttge; now intros * ->.
 Qed.
+
+Check @euttge_trans_clo.
+Check @VisF.
+Check @observe.
+Print itree'.
+        

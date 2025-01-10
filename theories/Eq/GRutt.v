@@ -48,7 +48,7 @@ Section RuttF.
   Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop ).
   Context (RAns : forall (A B : Type), E1 A -> A -> E2 B -> B -> Prop ).
   Context (RR : R1 -> R2 -> Prop).
-  Context (ErrorEvs : list (Type -> Type)).
+  Context (ErrorEvs : (Type -> Type) -> bool).
   
   Arguments REv {A} {B}.
   Arguments RAns {A} {B}.
@@ -68,7 +68,7 @@ Section RuttF.
   | EqErrL: forall A (e1 : E1 A)
                    (k1: A -> itree E1 R1)
                    (ot2: itree' E2 R2)
-                   (hh : In E1 ErrorEvs),  
+                   (hh : ErrorEvs E1 = true),  
       ruttF sim (VisF e1 k1) ot2            
   | EqTauL : forall (t1 : itree E1 R1) (ot2 : itree' E2 R2),
       ruttF sim (observe t1) ot2 ->
@@ -99,7 +99,7 @@ Section RuttF.
     (exists t1', t1 = TauF t1' /\
                    ruttF sim (observe t1') (VisF e2 k2))
     \/
-    (In E1 ErrorEvs /\ exists X1 (e1: E1 X1) k1,
+    (ErrorEvs E1 = true /\ exists X1 (e1: E1 X1) k1,
           t1 = VisF e1 k1).
   Proof.
     refine (fun H =>
@@ -121,12 +121,12 @@ Section RuttF.
 
   Lemma ruttF_inv_VisF {sim}
       U1 U2 (e1 : E1 U1) (e2 : E2 U2) (k1 : U1 -> _) (k2 : U2 -> _)
-    : not (In E1 ErrorEvs) ->
+    : ErrorEvs E1 = false ->
       ruttF sim (VisF e1 k1) (VisF e2 k2) ->
       forall v1 v2, RAns e1 v1 e2 v2 -> sim (k1 v1) (k2 v2).
   Proof.
     intros H H0. dependent destruction H0. assumption.
-    intuition.    
+    rewrite H in hh; intuition.  
   Qed.
 
   Ltac unfold_rutt :=
@@ -169,7 +169,7 @@ Variables (R1 R2: Type).
 Variable (REv: forall T1 T2, E1 T1 -> E2 T2 -> Prop).
 Variable (RAns: forall T1 T2, E1 T1 -> T1 -> E2 T2 -> T2 -> Prop).
 Variable (RR: R1 -> R2 -> Prop).
-Variable (ErrorEvs : list (Type -> Type)).
+Variable (ErrorEvs : (Type -> Type) -> bool).
 
 Lemma rutt_Ret r1 r2:
   RR r1 r2 ->
@@ -196,7 +196,7 @@ Qed.
 
 Lemma rutt_inv_Ret_r t1 r2:
   rutt REv RAns RR ErrorEvs t1 (Ret r2) ->
-  (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/ In E1 ErrorEvs.
+  (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/ ErrorEvs E1 = true.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t1). remember (RetF r2) as ot2; revert Heqot2.
@@ -269,7 +269,7 @@ Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
     REv _ _ e1 e2 /\
       (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
                      rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
-  \/ In E1 ErrorEvs.
+  \/ ErrorEvs E1 = true.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t2). remember (VisF e1 k1) as ot1; revert Heqot1.
@@ -298,7 +298,7 @@ Lemma rutt_inv_Vis_r {U2} t1 (e2: E2 U2) k2:
     REv U1 U2 e1 e2 /\
       (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
                      rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
-  \/ In E1 ErrorEvs.
+  \/ ErrorEvs E1 = true.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t1). remember (VisF e2 k2) as ot2; revert Heqot2.
@@ -316,35 +316,33 @@ Proof.
     + right; auto.  
 Qed.
 
-
-(************************************************************)
-
-
 Lemma rutt_inv_Vis U1 U2 (e1: E1 U1) (e2: E2 U2)
     (k1: U1 -> itree E1 R1) (k2: U2 -> itree E2 R2):
   rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2) ->
   (forall u1 u2, RAns U1 U2 e1 u1 e2 u2 ->
-                rutt REv RAns RR ErrorEvs (k1 u1) (k2 u2)) \/ In E1 ErrorEvs.
+                 rutt REv RAns RR ErrorEvs (k1 u1) (k2 u2))
+  \/ ErrorEvs E1 = true.
 Proof.
   intros H.
-
-  
-  apply rutt_inv_Vis_l in H.
-  destruct H.
-  destruct H as [U3 [e3 [k3 [A [B C]]]]].
+  remember (ErrorEvs E1) as E.
+  destruct E.
+  right; auto.
   left.
-  
-  
-  u1 u2 Hans. punfold H.
+  intros u1 u2 Hans. punfold H.
   apply ruttF_inv_VisF with (v1 := u1) (v2 := u2) in H. pclearbot; auto.
+  rewrite HeqE; auto.
   assumption.
 Qed.
 End ConstructionInversion.
 
+
+(************************************************************)
+
 Section euttge_trans_clo.
 
   Context {E1 E2 : Type -> Type} {R1 R2 : Type} (RR : R1 -> R2 -> Prop).
-
+  Context (ErrorEvs : (Type -> Type) -> bool).
+  
   (* Closing a relation over itrees under [euttge].
      Essentially the same closure as [eqit_trans_clo], but heterogeneous
      in the interface argument [E].
@@ -354,14 +352,16 @@ Section euttge_trans_clo.
    *)
 
   (* A transitivity functor *)
+(*
   Variant euttge_trans_clo (r : itree E1 R1 -> itree E2 R2 -> Prop) :
     itree E1 R1 -> itree E2 R2 -> Prop :=
-    eqit_trans_clo_intro t1 t2 t1' t2' RR1 RR2
+   | eqit_trans_clo_intro t1 t2 t1' t2' RR1 RR2
                          (EQVl: euttge RR1 t1 t1')
                          (EQVr: euttge RR2 t2 t2')
                          (REL: r t1' t2')
                          (LERR1: forall x x' y, RR1 x x' -> RR x' y -> RR x y)
-                         (LERR2: forall x y y', RR2 y y' -> RR x y' -> RR x y) :
+                         (LERR2: forall x y y', RR2 y y' -> RR x y' -> RR x y)
+                         (EE1: ErrorEvs E1 = false) :
       euttge_trans_clo r t1 t2.
   Hint Constructors euttge_trans_clo : itree.
 
@@ -373,24 +373,67 @@ Section euttge_trans_clo.
     destruct IN; econstructor; eauto.
   Qed.
 
+*)
+
+  Variant euttge_trans_clo (r : itree E1 R1 -> itree E2 R2 -> Prop) :
+    itree E1 R1 -> itree E2 R2 -> Prop :=
+   | eqit_trans_clo_intro t1 t2 t1' t2' RR1 RR2
+                         (EQVl: euttge RR1 t1 t1')
+                         (EQVr: euttge RR2 t2 t2')
+                         (REL: r t1' t2')
+                         (LERR1: forall x x' y, RR1 x x' -> RR x' y -> RR x y)
+                         (LERR2: forall x y y', RR2 y y' -> RR x y' -> RR x y)
+                         (EE1: ErrorEvs E1 = false) :
+                         (*      \/ (exists t1'', observe t1 = TauF t1'')
+                               \/ (exists rr, observe t1 = RetF rr)) :  *)
+      euttge_trans_clo r t1 t2
+    | eqit_trans_clo_error_intro e k (t1: itree E1 R1) t2
+        (EE1: ErrorEvs E1 = true) 
+        (OE: observe t1 = @VisF _ _ _ R1 e k) :
+      euttge_trans_clo r t1 t2.
+  Hint Constructors euttge_trans_clo : itree.
+
+  Lemma euttge_trans_clo_mon r1 r2 t1 t2
+        (IN : euttge_trans_clo r1 t1 t2)
+        (LE : r1 <2= r2) :
+    euttge_trans_clo r2 t1 t2.
+  Proof.
+    destruct IN. econstructor; eauto.
+    econstructor 2; eauto.
+  Qed.
+
   Hint Resolve euttge_trans_clo_mon : paco.
 
 End euttge_trans_clo.
 
+Print rel2.
+Print wcompatible2.
+
 (*replicate this proof for the models functor*)
 (* Validity of the up-to [euttge] principle *)
-Lemma euttge_trans_clo_wcompat E1 E2 R1 R2 (REv : forall A B, E1 A -> E2 B -> Prop)
-      (RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop ) (RR : R1 -> R2 -> Prop) :
-  wcompatible2 (rutt_ REv RAns RR) (euttge_trans_clo RR).
+Lemma euttge_trans_clo_wcompat E1 E2 R1 R2
+  (REv : forall A B, E1 A -> E2 B -> Prop)
+  (RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop )
+  (RR : R1 -> R2 -> Prop)
+  (ErrorEvs : (Type -> Type) -> bool) :
+  wcompatible2 (rutt_ REv RAns RR ErrorEvs) (euttge_trans_clo RR ErrorEvs).
 Proof.
   constructor; eauto with paco.
   { red. intros. eapply euttge_trans_clo_mon; eauto. }
   intros.
-  destruct PR. punfold EQVl. punfold EQVr. unfold_eqit.
+  destruct PR.
+
+  2: { red. rewrite OE. econstructor; auto. }
+
+  punfold EQVl. punfold EQVr. unfold_eqit.
   hinduction REL before r; intros; clear t1' t2'.
   - remember (RetF r1) as x. red.
     hinduction EQVl before r; intros; subst; try inv Heqx; eauto; (try constructor; eauto).
     remember (RetF r3) as x. hinduction EQVr before r; intros; subst; try inv Heqx; (try constructor; eauto).
+(*
+    eapply IHEQVl; eauto.
+    auto.
+*)
   - red. remember (TauF m1) as x.
     hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; ( try (constructor; eauto; fail )).
     remember (TauF m3) as y.
@@ -405,6 +448,13 @@ Proof.
     constructor; auto. intros. apply H0 in H1. pclearbot.
     apply gpaco2_clo.
     econstructor; eauto with itree.
+  - (* inversion EQVl; subst.
+       dependent destruction H2.
+       dependent destruction H3.
+       admit.
+       admit.
+    *)
+    rewrite hh in EE1; intuition.
   - remember (TauF t1) as x. red.
     hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; (try (constructor; eauto; fail)).
     pclearbot. punfold REL. constructor. eapply IHREL; eauto.
@@ -418,16 +468,74 @@ Qed.
 (* The validity of the up-to [euttge] entails we can rewrite under [euttge]
    and hence also [eq_itree] during coinductive proofs of [rutt]
 *)
-#[global] Instance grutt_cong_eqit {R1 R2 : Type} {E1 E2 : Type -> Type} {REv : forall A B, E1 A -> E2 B -> Prop}
-       {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} {RR1 RR2} {RS : R1 -> R2 -> Prop} r rg
-       (LERR1: forall x x' y, (RR1 x x': Prop) -> (RS x' y: Prop) -> RS x y)
-       (LERR2: forall x y y', (RR2 y y': Prop) -> RS x y' -> RS x y) :
+#[global] Instance grutt_cong_eqit {R1 R2 : Type} {E1 E2 : Type -> Type}
+  {REv : forall A B, E1 A -> E2 B -> Prop}
+  {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} 
+  {RS : R1 -> R2 -> Prop} {ErrorEvs} {RR1 RR2} r rg
+  (LERR1: forall x x' y, (RR1 x x': Prop) -> (RS x' y: Prop) -> RS x y)
+  (LERR2: forall x y y', (RR2 y y': Prop) -> RS x y' -> RS x y) :
   Proper (eq_itree RR1 ==> eq_itree RR2 ==> flip impl)
-         (gpaco2 (rutt_ REv RAns RS) (euttge_trans_clo RS) r rg).
+         (gpaco2 (rutt_ REv RAns RS ErrorEvs) (euttge_trans_clo RS ErrorEvs) r rg).
 Proof.
   repeat intro. gclo. econstructor; eauto;
     try eapply eqit_mon; try apply H; try apply H0; auto.
+Admitted. 
+(*
+Proof.
+  unfold Proper.
+  unfold respectful.
+  intros.
+  unfold flip.
+  unfold impl.
+ 
+  intros.
+  gclo.
+
+  remember (ErrorEvs E1) as EE.
+  destruct EE.
+
+  2: { econstructor; eauto;
+       try eapply eqit_mon; try apply H; try apply H0; auto.
+  }
+
+
+  
+  econstructor 2; eauto.
+  
+  setoid_rewrite H.
+  intros.
+
+  
+  
+           
+  
+  repeat intro. gunfold H1.
+  
+  destruct H1.
+  destruct IN.
+  red in H1.
+
+  3: {
+  
+  2: { econstructor. econstructor.
+       econstructor. pstep.
+       red.
+       
+
+  gclo. econstructor; eauto.
+  unfold euttge.
+  unfold eq_itree in H.
+  admit.
+
+  admit.
+
+  
+  
+    try eapply eqit_mon; try apply H; try apply H0; auto.
 Qed.
+*)
+
+(************************************************************************)
 
 Global Instance grutt_cong_euttge {R1 R2 : Type} {E1 E2 : Type -> Type} {REv : forall A B, E1 A -> E2 B -> Prop}
        {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} {RR1 RR2} {RS : R1 -> R2 -> Prop} r rg
