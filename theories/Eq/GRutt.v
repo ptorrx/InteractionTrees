@@ -226,27 +226,27 @@ Proof.
   intros. pfold. red. cbn. constructor. pstep_reverse.
 Qed.
 
-
-(************************************************************)
-
 Lemma rutt_inv_Tau_r t1 t2 :
   rutt REv RAns RR ErrorEvs t1 (Tau t2) -> rutt REv RAns RR ErrorEvs t1 t2.
 Proof.
   intros. punfold H. red in H. simpl in *.
   pstep. red. remember (TauF t2) as tt2 eqn:Ett2 in H.
-  revert t2 Ett2; induction H; try discriminate; intros; inversion Ett2; subst; auto.
+  revert t2 Ett2.
+  induction H; try discriminate; intros; inversion Ett2; subst; auto.
   - pclearbot. constructor. pstep_reverse.
+  - constructor; auto.
   - constructor. eapply IHruttF; eauto.
 Qed.
 
 Lemma rutt_add_Tau_r t1 t2 :
-  rutt REv RAns RR t1 t2 -> rutt REv RAns RR t1 (Tau t2).
+  rutt REv RAns RR ErrorEvs t1 t2 -> rutt REv RAns RR ErrorEvs t1 (Tau t2).
 Proof.
   intros. pfold. red. cbn. constructor. pstep_reverse.
 Qed.
 
 Lemma rutt_inv_Tau t1 t2 :
-  rutt REv RAns RR (Tau t1) (Tau t2) -> rutt REv RAns RR t1 t2.
+  rutt REv RAns RR ErrorEvs (Tau t1) (Tau t2) ->
+  rutt REv RAns RR ErrorEvs t1 t2.
 Proof.
   intros; apply rutt_inv_Tau_r, rutt_inv_Tau_l; assumption.
 Qed.
@@ -254,57 +254,88 @@ Qed.
 Lemma rutt_Vis {T1 T2} (e1: E1 T1) (e2: E2 T2)
     (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
   REv _ _ e1 e2 ->
-  (forall t1 t2, RAns _ _ e1 t1 e2 t2 -> rutt REv RAns RR (k1 t1) (k2 t2)) ->
-  rutt REv RAns RR (Vis e1 k1) (Vis e2 k2).
+  (forall t1 t2, RAns _ _ e1 t1 e2 t2 ->
+                 rutt REv RAns RR ErrorEvs (k1 t1) (k2 t2)) ->
+  rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2).
 Proof.
   intros He Hk. pstep; constructor; auto.
   intros; left. apply Hk; auto.
 Qed.
 
 Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
-  rutt REv RAns RR (Vis e1 k1) t2 ->
-  exists U2 (e2: E2 U2) k2,
+  rutt REv RAns RR ErrorEvs (Vis e1 k1) t2 ->
+  (exists U2 (e2: E2 U2) k2,
     t2 ≈ Vis e2 k2 /\
     REv _ _ e1 e2 /\
-    (forall v1 v2, RAns _ _ e1 v1 e2 v2 -> rutt REv RAns RR (k1 v1) (k2 v2)).
+      (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
+                     rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
+  \/ In E1 ErrorEvs.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t2). remember (VisF e1 k1) as ot1; revert Heqot1.
   induction Hrutt; intros; try discriminate; subst.
   - inversion Heqot1; subst A. inversion_sigma; rewrite <- eq_rect_eq in *;
-    subst; rename B into U2.
+      subst; rename B into U2.
+    left.
     exists U2, e2, k2; split. reflexivity. split; auto.
     intros v1 v2 HAns. specialize (H0 v1 v2 HAns). red in H0. now pclearbot.
-  - destruct (IHHrutt eq_refl) as (U2 & e2 & k2 & Ht0 & HAns).
-    rewrite <- itree_eta in Ht0.
-    exists U2, e2, k2; split; auto. now rewrite tau_eutt.
+  - inversion Heqot1; subst.
+    dependent destruction H2.
+    dependent destruction H1.
+    right; auto. 
+  - destruct (IHHrutt eq_refl) as [[U2 [e2 [k2 [Ht0 HAns]]]] | H].
+    (* as (U2 & e2 & k2 & Ht0 & HAns). *)
+    + left.
+      rewrite <- itree_eta in Ht0.
+      exists U2, e2, k2; split; auto. now rewrite tau_eutt.
+    + right; auto.  
 Qed.
 
 Lemma rutt_inv_Vis_r {U2} t1 (e2: E2 U2) k2:
-  rutt REv RAns RR t1 (Vis e2 k2) ->
-  exists U1 (e1: E1 U1) k1,
+  rutt REv RAns RR ErrorEvs t1 (Vis e2 k2) ->
+  (exists U1 (e1: E1 U1) k1,
     t1 ≈ Vis e1 k1 /\
     REv U1 U2 e1 e2 /\
-    (forall v1 v2, RAns _ _ e1 v1 e2 v2 -> rutt REv RAns RR (k1 v1) (k2 v2)).
+      (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
+                     rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
+  \/ In E1 ErrorEvs.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t1). remember (VisF e2 k2) as ot2; revert Heqot2.
   induction Hrutt; intros; try discriminate; subst.
   - inversion Heqot2; subst B. inversion_sigma; rewrite <- eq_rect_eq in *;
-    subst; rename A into U1.
+      subst; rename A into U1.
+    left.
     exists U1, e1, k1; split. reflexivity. split; auto.
     intros v1 v2 HAns. specialize (H0 v1 v2 HAns). red in H0. now pclearbot.
-  - destruct (IHHrutt eq_refl) as (U1 & e1 & k1 & Ht0 & HAns).
-    rewrite <- itree_eta in Ht0.
-    exists U1, e1, k1; split; auto. now rewrite tau_eutt.
+  - right; auto.  
+  - destruct (IHHrutt eq_refl) as [[U1 [e1 [k1 [Ht0 HAns]]]] | H].
+    + rewrite <- itree_eta in Ht0.
+      left.
+      exists U1, e1, k1; split; auto. now rewrite tau_eutt.
+    + right; auto.  
 Qed.
+
+
+(************************************************************)
+
 
 Lemma rutt_inv_Vis U1 U2 (e1: E1 U1) (e2: E2 U2)
     (k1: U1 -> itree E1 R1) (k2: U2 -> itree E2 R2):
-  rutt REv RAns RR (Vis e1 k1) (Vis e2 k2) ->
-  forall u1 u2, RAns U1 U2 e1 u1 e2 u2 -> rutt REv RAns RR (k1 u1) (k2 u2).
+  rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2) ->
+  (forall u1 u2, RAns U1 U2 e1 u1 e2 u2 ->
+                rutt REv RAns RR ErrorEvs (k1 u1) (k2 u2)) \/ In E1 ErrorEvs.
 Proof.
-  intros H u1 u2 Hans. punfold H.
+  intros H.
+
+  
+  apply rutt_inv_Vis_l in H.
+  destruct H.
+  destruct H as [U3 [e3 [k3 [A [B C]]]]].
+  left.
+  
+  
+  u1 u2 Hans. punfold H.
   apply ruttF_inv_VisF with (v1 := u1) (v2 := u2) in H. pclearbot; auto.
   assumption.
 Qed.
