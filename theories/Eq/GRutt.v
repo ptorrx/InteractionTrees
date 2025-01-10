@@ -383,9 +383,9 @@ Section euttge_trans_clo.
                          (REL: r t1' t2')
                          (LERR1: forall x x' y, RR1 x x' -> RR x' y -> RR x y)
                          (LERR2: forall x y y', RR2 y y' -> RR x y' -> RR x y)
-                         (EE1: ErrorEvs E1 = false) :
-                         (*      \/ (exists t1'', observe t1 = TauF t1'')
-                               \/ (exists rr, observe t1 = RetF rr)) :  *)
+                       (*  (EE1: ErrorEvs E1 = false  (* ) : *)
+                               \/ (exists t1'', observe t1 = TauF t1'')
+                               \/ (exists rr, observe t1 = RetF rr)) *) :  
       euttge_trans_clo r t1 t2
     | eqit_trans_clo_error_intro e k (t1: itree E1 R1) t2
         (EE1: ErrorEvs E1 = true) 
@@ -424,7 +424,7 @@ Proof.
   destruct PR.
 
   2: { red. rewrite OE. econstructor; auto. }
-
+  
   punfold EQVl. punfold EQVr. unfold_eqit.
   hinduction REL before r; intros; clear t1' t2'.
   - remember (RetF r1) as x. red.
@@ -448,13 +448,14 @@ Proof.
     constructor; auto. intros. apply H0 in H1. pclearbot.
     apply gpaco2_clo.
     econstructor; eauto with itree.
-  - (* inversion EQVl; subst.
+  - remember (VisF e1 k1) as x. red.
+    hinduction EQVl before r; intros; subst; try discriminate; try (constructor; eauto; fail).  
+    (* inversion EQVl; subst.
        dependent destruction H2.
        dependent destruction H3.
        admit.
        admit.
     *)
-    rewrite hh in EE1; intuition.
   - remember (TauF t1) as x. red.
     hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; (try (constructor; eauto; fail)).
     pclearbot. punfold REL. constructor. eapply IHREL; eauto.
@@ -462,6 +463,7 @@ Proof.
     hinduction EQVr before r; intros; subst; try inv Heqy; try inv CHECK; (try (constructor; eauto; fail)).
     pclearbot. punfold REL. constructor. eapply IHREL; eauto.
 Qed.
+
 
 #[global] Hint Resolve euttge_trans_clo_wcompat : paco.
 
@@ -479,88 +481,38 @@ Qed.
 Proof.
   repeat intro. gclo. econstructor; eauto;
     try eapply eqit_mon; try apply H; try apply H0; auto.
-Admitted. 
-(*
-Proof.
-  unfold Proper.
-  unfold respectful.
-  intros.
-  unfold flip.
-  unfold impl.
- 
-  intros.
-  gclo.
-
-  remember (ErrorEvs E1) as EE.
-  destruct EE.
-
-  2: { econstructor; eauto;
-       try eapply eqit_mon; try apply H; try apply H0; auto.
-  }
-
-
-  
-  econstructor 2; eauto.
-  
-  setoid_rewrite H.
-  intros.
-
-  
-  
-           
-  
-  repeat intro. gunfold H1.
-  
-  destruct H1.
-  destruct IN.
-  red in H1.
-
-  3: {
-  
-  2: { econstructor. econstructor.
-       econstructor. pstep.
-       red.
-       
-
-  gclo. econstructor; eauto.
-  unfold euttge.
-  unfold eq_itree in H.
-  admit.
-
-  admit.
-
-  
-  
-    try eapply eqit_mon; try apply H; try apply H0; auto.
 Qed.
-*)
 
-(************************************************************************)
-
-Global Instance grutt_cong_euttge {R1 R2 : Type} {E1 E2 : Type -> Type} {REv : forall A B, E1 A -> E2 B -> Prop}
-       {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} {RR1 RR2} {RS : R1 -> R2 -> Prop} r rg
+Global Instance grutt_cong_euttge {R1 R2 : Type} {E1 E2 : Type -> Type}
+  {REv : forall A B, E1 A -> E2 B -> Prop}
+  {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop}
+  {RS : R1 -> R2 -> Prop} {ErrorEvs} {RR1 RR2} r rg
        (LERR1: forall x x' y, (RR1 x x': Prop) -> (RS x' y: Prop) -> RS x y)
        (LERR2: forall x y y', (RR2 y y': Prop) -> RS x y' -> RS x y) :
   Proper (euttge RR1 ==> euttge RR2 ==> flip impl)
-         (gpaco2 (rutt_ REv RAns RS) (euttge_trans_clo RS) r rg).
+         (gpaco2 (rutt_ REv RAns RS ErrorEvs) (euttge_trans_clo RS ErrorEvs) r rg).
 Proof.
   repeat intro. gclo. econstructor; eauto.
 Qed.
 
 (* Provide these explicitly since typeclasses eauto cannot infer them *)
 
-#[global] Instance grutt_cong_eqit_eq {R1 R2 : Type} {E1 E2 : Type -> Type} {REv : forall A B, E1 A -> E2 B -> Prop}
-      {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} {RS : R1 -> R2 -> Prop} r rg:
+#[global] Instance grutt_cong_eqit_eq {R1 R2 : Type} {E1 E2 : Type -> Type}
+  {REv : forall A B, E1 A -> E2 B -> Prop}
+  {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop}
+  {RS : R1 -> R2 -> Prop} {ErrorEvs} r rg:
     Proper (eq_itree eq ==> eq_itree eq ==> flip impl)
-         (gpaco2 (rutt_ REv RAns RS) (euttge_trans_clo RS) r rg).
+         (gpaco2 (rutt_ REv RAns RS ErrorEvs) (euttge_trans_clo RS ErrorEvs) r rg).
 Proof.
   apply grutt_cong_eqit; now intros * ->.
 Qed.
 
-#[global] Instance grutt_cong_euttge_eq {R1 R2 : Type} {E1 E2 : Type -> Type} {REv : forall A B, E1 A -> E2 B -> Prop}
-      {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop} {RS : R1 -> R2 -> Prop} r rg:
+#[global] Instance grutt_cong_euttge_eq {R1 R2 : Type} {E1 E2 : Type -> Type}
+  {REv : forall A B, E1 A -> E2 B -> Prop}
+  {RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop}
+  {RS : R1 -> R2 -> Prop} {ErrorEvs} r rg:
     Proper (euttge eq ==> euttge eq ==> flip impl)
-         (gpaco2 (rutt_ REv RAns RS) (euttge_trans_clo RS) r rg).
+         (gpaco2 (rutt_ REv RAns RS ErrorEvs) (euttge_trans_clo RS ErrorEvs) r rg).
 Proof.
   apply grutt_cong_euttge; now intros * ->.
 Qed.
