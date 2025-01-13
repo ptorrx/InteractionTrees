@@ -148,7 +148,7 @@ Tactic Notation "fold_ruttF" hyp(H) :=
   try punfold H;
   try red in H;
   match type of H with
-  | ruttF ?_REV ?_RANS ?_RR (upaco2 (rutt_ ?_REV ?_RANS ?_RR) bot2) ?_OT1 ?_OT2 =>
+  | ruttF ?_REV ?_RANS ?_RR ?_ErrorEvs (upaco2 (rutt_ ?_REV ?_RANS ?_RR ?_ErrorEvs) bot2) ?_OT1 ?_OT2 =>
       match _OT1 with
       | observe _ => idtac
       | ?_OT1 => rewrite (itree_eta' _OT1) in H
@@ -405,9 +405,6 @@ Section euttge_trans_clo.
   Hint Resolve euttge_trans_clo_mon : paco.
 
 End euttge_trans_clo.
-
-Print rel2.
-Print wcompatible2.
 
 (*replicate this proof for the models functor*)
 (* Validity of the up-to [euttge] principle *)
