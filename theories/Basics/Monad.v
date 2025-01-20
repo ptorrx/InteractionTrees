@@ -48,7 +48,7 @@ Section Laws.
          (eq1 ==> pointwise_relation _ eq1 ==> eq1)
          bind)
     }.
-
+  
 End Laws.
 
 #[global] Existing Instance Proper_bind.

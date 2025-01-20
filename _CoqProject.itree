@@ -37,6 +37,8 @@ theories/Eq/UpToTaus.v
 theories/Eq/SimUpToTaus.v
 theories/Eq/EqAxiom.v
 theories/Eq/EuttExtras.v
+theories/Eq/GRutt.v
+theories/Eq/GRuttFacts.v
 theories/Eq/Rutt.v
 theories/Eq/RuttFacts.v
 
