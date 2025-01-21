@@ -458,12 +458,25 @@ Lemma rutt_Vis {T1 T2} (e1: E1 T1) (e2: E2 T2)
     (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
   REv _ _ e1 e2 ->
   (forall t1 t2, RAns _ _ e1 t1 e2 t2 ->
-                 rutt REv RAns RR ErrorEvs (k1 t1) (k2 t2)) ->
-  rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2).
+       @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 t1) (k2 t2)) ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    (Vis e1 k1) (Vis e2 k2).
 Proof.
   intros He Hk. pstep; constructor; auto.
   intros; left. apply Hk; auto.
 Qed.
+
+Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    (Vis e1 k1) t2 ->
+  (exists U2 (e2: Ef2 U2) k2,
+    t2 ≈ Vis (@subevent _ _ (LSub EE2) _ e2) k2 /\
+    REv _ _ e1 e2 /\
+      (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
+                     @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+                       (k1 v1) (k2 v2)))
+   \/ WillBreak t2.
+Proof.
 
 Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
   rutt REv RAns RR ErrorEvs (Vis e1 k1) t2 ->

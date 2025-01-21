@@ -60,6 +60,7 @@ Section SEventAuxW.
   Defined.
 End SEventAuxW.  
 
+(**************************************************************************)
 
 Class FIso (E1 E2: Type -> Type) := {
     mfun1: E1 -< E2 ;
@@ -126,6 +127,12 @@ Section SEventAux.
     eapply IsoCongruence12; eauto.
   Qed.     
 
+  Definition IsBreakEv {T} (e: E T) :=
+    exists e0: E2 T, e = RSub _ e0.
+
+  Definition IsEffectEv {T} (e: E T) :=
+    exists e0: E1 T, e = LSub _ e0.
+  
   Definition IsBreakF {R} (t: itree' E R) : Prop := 
     exists T (e: E2 T) k, t = VisF (@subevent _ _ RSub _ e) k.
 
@@ -457,45 +464,71 @@ Qed.
 
 (**)
 
-Lemma rutt_Vis {T1 T2} (e1: E1 T1) (e2: E2 T2)
+Lemma rutt_Vis {T1 T2} (e1: Ef1 T1) (e2: Ef2 T2)
     (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
   REv _ _ e1 e2 ->
   (forall t1 t2, RAns _ _ e1 t1 e2 t2 ->
-                 rutt REv RAns RR ErrorEvs (k1 t1) (k2 t2)) ->
-  rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2).
+       @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 t1) (k2 t2)) ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    (Vis (@subevent _ _ (LSub EE1) _ e1) k1)
+    (Vis (@subevent _ _ (LSub EE2) _ e2) k2).
 Proof.
   intros He Hk. pstep; constructor; auto.
   intros; left. apply Hk; auto.
 Qed.
 
-Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
-  rutt REv RAns RR ErrorEvs (Vis e1 k1) t2 ->
-  (exists U2 (e2: E2 U2) k2,
-    t2 ≈ Vis e2 k2 /\
+Lemma rutt_inv_Vis_l {U1} (e1: Ef1 U1) k1 t2:
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    (Vis (@subevent _ _ (LSub EE1) _ e1) k1) t2 ->
+  (exists U2 (e2: Ef2 U2) k2,
+    t2 ≈ Vis (@subevent _ _ (LSub EE2) _ e2) k2 /\
     REv _ _ e1 e2 /\
       (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
-                     rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
-  \/ ErrorEvs E1 = true.
+                     @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+                       (k1 v1) (k2 v2)))
+   \/ WillBreak t2.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
-  setoid_rewrite (itree_eta t2). remember (VisF e1 k1) as ot1; revert Heqot1.
+  unfold WillBreak.
+  setoid_rewrite (itree_eta t2).
+  remember (VisF (@subevent _ _ (LSub EE1) _ e1) k1) as ot1; revert Heqot1.
   induction Hrutt; intros; try discriminate; subst.
-  - inversion Heqot1; subst A. inversion_sigma; rewrite <- eq_rect_eq in *;
+  - left.
+    inversion Heqot1; subst A. inversion_sigma; rewrite <- eq_rect_eq in *;
       subst; rename B into U2.
-    left.
+    eapply IsoInjection1 in H3_0; auto.
+    inv H3_0.
     exists U2, e2, k2; split. reflexivity. split; auto.
     intros v1 v2 HAns. specialize (H0 v1 v2 HAns). red in H0. now pclearbot.
-  - inversion Heqot1; subst.
-    dependent destruction H2.
-    dependent destruction H1.
-    right; auto. 
+  - left. dependent destruction Heqot1.
+    eapply IsoCongruence21 in x; intuition.
+  - right. exists A, e2, k2; reflexivity.
   - destruct (IHHrutt eq_refl) as [[U2 [e2 [k2 [Ht0 HAns]]]] | H].
     (* as (U2 & e2 & k2 & Ht0 & HAns). *)
     + left.
       rewrite <- itree_eta in Ht0.
       exists U2, e2, k2; split; auto. now rewrite tau_eutt.
-    + right; auto.  
+    + destruct H as [T [e0 [k0 H0]]].
+      punfold H0.
+      red in H0; simpl in H0.
+      dependent destruction H0.           
+      * setoid_rewrite <- x in Hrutt. 
+        dependent destruction Hrutt.
+        -- eapply IsoCongruence12 in x; intuition.
+        -- eapply IsoCongruence21 in x; intuition.
+        -- right. exists T, e0, k2.
+           eapply eqit_Tau_l.
+           rewrite itree_eta.
+           rewrite <- x0; reflexivity.
+      * right. exists T, e0, k0.
+        eapply eqit_Tau_l.
+        setoid_rewrite itree_eta.
+        rewrite <- x.
+        eapply eqit_Tau_l; simpl.
+        pstep; auto. 
 Qed.
+
+(**)
 
 Lemma rutt_inv_Vis_r {U2} t1 (e2: E2 U2) k2:
   rutt REv RAns RR ErrorEvs t1 (Vis e2 k2) ->
