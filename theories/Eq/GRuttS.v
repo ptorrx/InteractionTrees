@@ -380,25 +380,57 @@ Qed.
 
 (**)
 
+Lemma break_inv_l t1 t2 :
+  IsBreak EE1 t1 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
+  unfold IsBreak, IsBreakF.
+  intro H.
+  destruct H as [T [e0 [k0 H1]]].
+  pcofix CIH.
+  pstep; red.
+  rewrite H1.
+  econstructor.
+Qed.  
+
+Lemma break_inv_r t1 t2 :
+  IsBreak EE2 t2 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
+  unfold IsBreak, IsBreakF.
+  intro H.
+  destruct H as [T [e0 [k0 H1]]].
+  pcofix CIH.
+  pstep; red.
+  rewrite H1.
+  econstructor.
+Qed.  
+
 Lemma rutt_inv_Tau_l t1 t2 :
-  rutt REv RAns RR ErrorEvs (Tau t1) t2 -> rutt REv RAns RR ErrorEvs t1 t2.
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (Tau t1) t2 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
 Proof.
   intros. punfold H. red in H. simpl in *.
   remember (TauF t1) as tt1. genobs t2 ot2.
   hinduction H before t1; intros; try discriminate.
-  - inv Heqtt1. pclearbot. pstep. red. simpobs. econstructor; eauto. pstep_reverse.
+  - inv Heqtt1. pclearbot. pstep. red. simpobs. econstructor; eauto.
+    pstep_reverse.
+  - assert (IsBreak EE2 t2) as A1.
+    { unfold IsBreak, IsBreakF.
+      rewrite <- Heqot2; eauto. }
+    eapply break_inv_r; auto.
   - inv Heqtt1. punfold_reverse H.
   - red in IHruttF. pstep. red; simpobs. econstructor; eauto. pstep_reverse.
 Qed.
-
+    
 Lemma rutt_add_Tau_l t1 t2 :
-  rutt REv RAns RR ErrorEvs t1 t2 -> rutt REv RAns RR ErrorEvs (Tau t1) t2.
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (Tau t1) t2.
 Proof.
   intros. pfold. red. cbn. constructor. pstep_reverse.
 Qed.
 
 Lemma rutt_inv_Tau_r t1 t2 :
-  rutt REv RAns RR ErrorEvs t1 (Tau t2) -> rutt REv RAns RR ErrorEvs t1 t2.
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 (Tau t2) ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
 Proof.
   intros. punfold H. red in H. simpl in *.
   pstep. red. remember (TauF t2) as tt2 eqn:Ett2 in H.
@@ -410,17 +442,20 @@ Proof.
 Qed.
 
 Lemma rutt_add_Tau_r t1 t2 :
-  rutt REv RAns RR ErrorEvs t1 t2 -> rutt REv RAns RR ErrorEvs t1 (Tau t2).
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 (Tau t2).
 Proof.
   intros. pfold. red. cbn. constructor. pstep_reverse.
 Qed.
 
 Lemma rutt_inv_Tau t1 t2 :
-  rutt REv RAns RR ErrorEvs (Tau t1) (Tau t2) ->
-  rutt REv RAns RR ErrorEvs t1 t2.
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (Tau t1) (Tau t2) ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
 Proof.
   intros; apply rutt_inv_Tau_r, rutt_inv_Tau_l; assumption.
 Qed.
+
+(**)
 
 Lemma rutt_Vis {T1 T2} (e1: E1 T1) (e2: E2 T2)
     (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
