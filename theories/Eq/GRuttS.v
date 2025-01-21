@@ -16,8 +16,7 @@
 (** [rutt] is used to define the [trace_refine] relation in [ITree.ITrace.ITraceDefinition]. *)
 
 From Coq Require Import
-     Morphisms
-.
+     Morphisms.
 
 From ExtLib Require Import
      Structures.Monad.
@@ -27,8 +26,7 @@ From ITree Require Import
      Axioms
      ITree
      Eq
-     Basics
-.
+     Basics.
 
 From Paco Require Import paco.
 
@@ -38,29 +36,7 @@ Import Monads.
 Import MonadNotation.
 Local Open Scope monad_scope.
 
-Definition FEquiv (E1 E2: Type -> Type) :=
-  ((E1 -< E2) * (E2 -< E1))%type.
-
-Section SEventAuxW.
-  Context {E: Type -> Type}.
-  Context {Ef: Type -> Type}.
-  Context {Er: Type -> Type}.
-  Context (EE : FEquiv E (Ef +' Er)).
-
-  Definition LSubW : Ef -< E.
-    destruct EE as [r r0].
-    intros T H; apply (r0 T).
-    exact (inl1 H).
-  Defined.
-
-  Definition RSubW : Er -< E.
-    destruct EE as [r r0].
-    intros T H; apply (r0 T).
-    exact (inr1 H).
-  Defined.
-End SEventAuxW.  
-
-(**************************************************************************)
+(** Auxiliary ********************************************************)
 
 Class FIso (E1 E2: Type -> Type) := {
     mfun1: E1 -< E2 ;
@@ -69,26 +45,59 @@ Class FIso (E1 E2: Type -> Type) := {
     mid21 : forall T x, mfun2 T (mfun1 T x) = x ;
 }.
 
-Section SEventAux.
+Section ProjAux.
+  Context {E: Type -> Type}.
+  Context {E1: Type -> Type}.
+  Context {E2: Type -> Type}.
+  Context (EE : FIso E (E1 +' E2)).
+ 
+  Definition LSub : E1 -< E := 
+    match EE with
+     {| mfun1 := f1; mfun2 := f2; mid12 := me12; mid21 := me21 |} =>
+      (fun _ f2 _ _ T (H : E1 T) => f2 T (inl1 H)) f1 f2 me12 me21
+    end.
+
+  Definition RSub : E2 -< E :=
+    match EE with
+     {| mfun1 := f1; mfun2 := f2; mid12 := me12; mid21 := me21 |} =>
+      (fun _ f2 _ _ T (H : E2 T) => f2 T (inr1 H)) f1 f2 me12 me21
+    end.
+
+End ProjAux.
+
+  Notation cutoff EE e := (@subevent _ _ (RSub EE) _ e).
+  
+  Notation effect EE e := (@subevent _ _ (LSub EE) _ e).
+
+  Notation Cutoff EE e :=
+    (exists e0, e = cutoff EE e0).
+
+  Notation Effect EE e :=
+    (exists e0, e = effect EE e0).
+
+  Notation DoCutoffF EE t := 
+   (exists T (e: _ T) k, t = VisF (cutoff EE e) k).
+
+  Notation DoCutoff EE t := (DoCutoffF EE (observe t)).
+
+  Notation DoEffectF EE t := 
+   (exists T (e: _ T) k, t = VisF (effect EE e) k).
+
+  Notation DoEffect EE t := (DoEffectF EE (observe t)).
+
+  Notation WillCutoff EE t := 
+    (exists T (e: _ T) k,
+      @eutt _ _ _ eq t (Vis (cutoff EE e) k)).
+  
+Section ProjLemmas.
   Context {E: Type -> Type}.
   Context {E1: Type -> Type}.
   Context {E2: Type -> Type}.
   Context (EE : FIso E (E1 +' E2)).
 
-  Definition LSub : E1 -< E.
-    destruct EE as [f1 f2 _ _].
-    intros T H; apply (f2 T).
-    exact (inl1 H).
-  Defined.
-
-  Definition RSub : E2 -< E.
-    destruct EE as [f1 f2 _ _].
-    intros T H; apply (f2 T).
-    exact (inr1 H).
-  Defined. 
-
   Lemma IsoInjection1: forall T (e1 e2: E1 T),   
-           @subevent _ _ LSub T e1 = @subevent _ _ LSub T e2 -> e1 = e2.    
+     effect EE e1 = effect EE e2 -> e1 = e2.    
+  Proof.
     intros T e1 e2 H.
     unfold subevent, resum, RSub, LSub in H.
     destruct EE as [f1 f2 me1 me2].
@@ -99,7 +108,8 @@ Section SEventAux.
   Qed.
 
   Lemma IsoInjection2: forall T (e1 e2: E2 T),   
-           @subevent _ _ RSub T e1 = @subevent _ _ RSub T e2 -> e1 = e2.    
+     cutoff EE e1 = cutoff EE e2 -> e1 = e2.
+  Proof.  
     intros T e1 e2 H.
     unfold subevent, resum, RSub, LSub in H.
     destruct EE as [f1 f2 me1 me2].
@@ -110,7 +120,8 @@ Section SEventAux.
   Qed.
     
   Lemma IsoCongruence12: forall T (e1: E1 T) (e2: E2 T),   
-           @subevent _ _ LSub T e1 = @subevent _ _ RSub T e2 -> False.    
+      effect EE e1 = cutoff EE e2 -> False.
+  Proof.  
     intros T e1 e2 H.
     unfold subevent, resum, RSub, LSub in H.
     destruct EE as [f1 f2 me1 me2].
@@ -121,41 +132,15 @@ Section SEventAux.
   Qed.
 
   Lemma IsoCongruence21: forall T (e1: E1 T) (e2: E2 T),   
-           @subevent _ _ RSub T e2 = @subevent _ _ LSub T e1 -> False.    
+      cutoff EE e2 = effect EE e1 -> False.
+  Proof.  
     intros T e1 e2 H.
     symmetry in H.
     eapply IsoCongruence12; eauto.
   Qed.     
 
-  Definition IsBreakEv {T} (e: E T) :=
-    exists e0: E2 T, e = RSub _ e0.
-
-  Definition IsEffectEv {T} (e: E T) :=
-    exists e0: E1 T, e = LSub _ e0.
-  
-  Definition IsBreakF {R} (t: itree' E R) : Prop := 
-    exists T (e: E2 T) k, t = VisF (@subevent _ _ RSub _ e) k.
-
-  Definition IsBreak {R} (t: itree E R) : Prop := 
-    IsBreakF (observe t).
-  
-End SEventAux.  
-
-Section BreakS.
-
-  Context {E: Type -> Type}.
-  Context {R : Type}.
-  Context {Ef: Type -> Type}.
-  Context {Er: Type -> Type}.
-  Context {EE : FIso E (Ef +' Er)}.
-  
-  Definition WillBreak (t: itree E R) : Prop := 
-    exists T (e: Er T) k,
-      @eutt E R R eq t (Vis (@subevent _ _ (RSub EE) _ e) k).
-
-  Lemma IsBreakWillBreak (t: itree E R) :
-    IsBreak EE t -> WillBreak t.
-    unfold IsBreak, WillBreak, IsBreakF.
+  Lemma Do2WillCutoff {R} (t: itree E R) :
+    DoCutoff EE t -> WillCutoff EE t.
     intros [T [e [k H]]].
     exists T, e, k.
     setoid_rewrite itree_eta.
@@ -163,10 +148,11 @@ Section BreakS.
     simpl; reflexivity.
   Qed.  
   
-End BreakS.
+End ProjLemmas.  
 
-(*********************************************************************)
-  
+
+(** Strict Generalized Rutt *********************************************)
+
 Section RuttF.
 
   Context {E1 E2: Type -> Type}.
@@ -199,16 +185,16 @@ Section RuttF.
                    (k2 : B -> itree E2 R2),
       REv e1 e2 ->
       (forall (a : A) (b : B), RAns e1 a e2 b -> sim (k1 a) (k2 b)) ->
-      ruttF sim (VisF (@subevent _ _ (LSub EE1) _ e1) k1)
-                (VisF (@subevent _ _ (LSub EE2) _ e2) k2)
+      ruttF sim (VisF (effect EE1 e1) k1)
+                (VisF (effect EE2 e2) k2)
   | EqErrL: forall A (e1 : Er1 A)
                    (k1: A -> itree E1 R1)
                    (ot2: itree' E2 R2),  
-      ruttF sim (VisF (@subevent _ _ (RSub EE1) _ e1) k1) ot2            
+      ruttF sim (VisF (cutoff EE1 e1) k1) ot2            
   | EqErrR: forall A (e2 : Er2 A)
                    (k2: A -> itree E2 R2)
                    (ot1: itree' E1 R1),  
-      ruttF sim ot1 (VisF (@subevent _ _ (RSub EE2) _ e2) k2)             
+      ruttF sim ot1 (VisF (cutoff EE2 e2) k2)             
   | EqTauL : forall (t1 : itree E1 R1)
                     (ot2 : itree' E2 R2),
       ruttF sim (observe t1) ot2 ->
@@ -236,15 +222,15 @@ Section RuttF.
   Hint Unfold rutt : itree.
 
   Lemma ruttF_inv_VisF_r {sim} t1 U2 (e2: Ef2 U2) (k2: U2 -> _):
-    ruttF sim t1 (VisF (@subevent _ _ (LSub EE2) _ e2) k2) ->
+    ruttF sim t1 (VisF (effect EE2 e2) k2) ->
     (exists U1 (e1: Ef1 U1) k1,
-        t1 = VisF (@subevent _ _ (LSub EE1) _ e1) k1 /\
+        t1 = VisF (effect EE1 e1) k1 /\
         forall v1 v2, RAns e1 v1 e2 v2 -> sim (k1 v1) (k2 v2))
     \/
-    (exists U1 (e1: Er1 U1) k1, t1 = VisF (@subevent _ _ (RSub EE1) _ e1) k1)
+    DoCutoffF EE1 t1   
     \/
     (exists t1', t1 = TauF t1' /\
-     ruttF sim (observe t1') (VisF (@subevent _ _ (LSub EE2) _ e2) k2)).        
+     ruttF sim (observe t1') (VisF (effect EE2 e2) k2)).        
   Proof.
     intros.
     remember t1 as t0.
@@ -268,8 +254,8 @@ Section RuttF.
   Lemma ruttF_inv_VisF {sim} U1 U2
     (e1 : Ef1 U1) (e2 : Ef2 U2)
     (k1 : U1 -> itree E1 R1) (k2 : U2 -> itree E2 R2) :
-    ruttF sim (VisF (@subevent _ _ (LSub EE1) _ e1) k1)
-              (VisF (@subevent _ _ (LSub EE2) _ e2) k2) ->
+    ruttF sim (VisF (effect EE1 e1) k1)
+              (VisF (effect EE2 e2) k2) ->
       forall v1 v2, RAns e1 v1 e2 v2 -> sim (k1 v1) (k2 v2).
   Proof.
     intros H. dependent destruction H.
@@ -281,8 +267,9 @@ Section RuttF.
   Qed.
     
   Ltac unfold_rutt :=
-    (try match goal with [|- rutt_ _ _ _ _ _ _ _ ] => red end);
-    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ |- _ ] => red in H end).
+    (try match goal with [|- rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ ] => red end);
+    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ |- _ ] =>
+                              red in H end).
 
   Lemma fold_ruttF:
     forall (t1: itree E1 R1) (t2: itree E2 R2) ot1 ot2,
@@ -344,10 +331,9 @@ Qed.
 
 Lemma rutt_inv_Ret_l r1 t2:
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (Ret r1) t2 ->
-  (exists r2, t2 ≳ Ret r2 /\ RR r1 r2) \/ (WillBreak t2).
+  (exists r2, t2 ≳ Ret r2 /\ RR r1 r2) \/ (WillCutoff EE2 t2).
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
-  unfold WillBreak.
   setoid_rewrite (itree_eta t2).
   remember (RetF r1) as ot1; revert Heqot1.
   induction Hrutt; intros; try discriminate.
@@ -366,10 +352,9 @@ Qed.
 
 Lemma rutt_inv_Ret_r t1 r2:
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 (Ret r2) ->
-  (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/ (WillBreak t1).
+  (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/ (WillCutoff EE1 t1).
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
-  unfold WillBreak.
   setoid_rewrite (itree_eta t1). remember (RetF r2) as ot2; revert Heqot2.
   induction Hrutt; intros; try discriminate.
   - left. inversion Heqot2; subst. exists r1. split; [reflexivity|auto].
@@ -385,26 +370,22 @@ Proof.
       eapply tau_eutt.      
 Qed.
 
-(**)
-
-Lemma break_inv_l t1 t2 :
-  IsBreak EE1 t1 ->
+Lemma cutoff_inv_l t1 t2 :
+  DoCutoff EE1 t1 ->
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
-  unfold IsBreak, IsBreakF.
-  intro H.
-  destruct H as [T [e0 [k0 H1]]].
+Proof.  
+  intros [T [e0 [k0 H1]]].
   pcofix CIH.
   pstep; red.
   rewrite H1.
   econstructor.
 Qed.  
 
-Lemma break_inv_r t1 t2 :
-  IsBreak EE2 t2 ->
+Lemma cutoff_inv_r t1 t2 :
+  DoCutoff EE2 t2 ->
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
-  unfold IsBreak, IsBreakF.
-  intro H.
-  destruct H as [T [e0 [k0 H1]]].
+Proof.
+  intros [T [e0 [k0 H1]]].
   pcofix CIH.
   pstep; red.
   rewrite H1.
@@ -420,10 +401,9 @@ Proof.
   hinduction H before t1; intros; try discriminate.
   - inv Heqtt1. pclearbot. pstep. red. simpobs. econstructor; eauto.
     pstep_reverse.
-  - assert (IsBreak EE2 t2) as A1.
-    { unfold IsBreak, IsBreakF.
-      rewrite <- Heqot2; eauto. }
-    eapply break_inv_r; auto.
+  - assert (DoCutoff EE2 t2) as A1.
+    { rewrite <- Heqot2; eauto. }
+    eapply cutoff_inv_r; auto.
   - inv Heqtt1. punfold_reverse H.
   - red in IHruttF. pstep. red; simpobs. econstructor; eauto. pstep_reverse.
 Qed.
@@ -468,10 +448,9 @@ Lemma rutt_Vis {T1 T2} (e1: Ef1 T1) (e2: Ef2 T2)
     (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
   REv _ _ e1 e2 ->
   (forall t1 t2, RAns _ _ e1 t1 e2 t2 ->
-       @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 t1) (k2 t2)) ->
+     @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 t1) (k2 t2)) ->
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
-    (Vis (@subevent _ _ (LSub EE1) _ e1) k1)
-    (Vis (@subevent _ _ (LSub EE2) _ e2) k2).
+    (Vis (effect EE1 e1) k1) (Vis (effect EE2 e2) k2).
 Proof.
   intros He Hk. pstep; constructor; auto.
   intros; left. apply Hk; auto.
@@ -479,19 +458,18 @@ Qed.
 
 Lemma rutt_inv_Vis_l {U1} (e1: Ef1 U1) k1 t2:
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
-    (Vis (@subevent _ _ (LSub EE1) _ e1) k1) t2 ->
+    (Vis (effect EE1 e1) k1) t2 ->
   (exists U2 (e2: Ef2 U2) k2,
-    t2 ≈ Vis (@subevent _ _ (LSub EE2) _ e2) k2 /\
+    t2 ≈ Vis (effect EE2 e2) k2 /\
     REv _ _ e1 e2 /\
       (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
                      @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
                        (k1 v1) (k2 v2)))
-   \/ WillBreak t2.
+   \/ WillCutoff EE2 t2.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
-  unfold WillBreak.
   setoid_rewrite (itree_eta t2).
-  remember (VisF (@subevent _ _ (LSub EE1) _ e1) k1) as ot1; revert Heqot1.
+  remember (VisF (effect EE1 e1) k1) as ot1; revert Heqot1.
   induction Hrutt; intros; try discriminate; subst.
   - left.
     inversion Heqot1; subst A. inversion_sigma; rewrite <- eq_rect_eq in *;
@@ -504,7 +482,6 @@ Proof.
     eapply IsoCongruence21 in x; intuition.
   - right. exists A, e2, k2; reflexivity.
   - destruct (IHHrutt eq_refl) as [[U2 [e2 [k2 [Ht0 HAns]]]] | H].
-    (* as (U2 & e2 & k2 & Ht0 & HAns). *)
     + left.
       rewrite <- itree_eta in Ht0.
       exists U2, e2, k2; split; auto. now rewrite tau_eutt.
@@ -530,50 +507,90 @@ Qed.
 
 (**)
 
-Lemma rutt_inv_Vis_r {U2} t1 (e2: E2 U2) k2:
-  rutt REv RAns RR ErrorEvs t1 (Vis e2 k2) ->
-  (exists U1 (e1: E1 U1) k1,
-    t1 ≈ Vis e1 k1 /\
+Lemma rutt_inv_Vis_r {U2} t1 (e2: Ef2 U2) k2:
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    t1 (Vis (effect EE2 e2) k2) ->
+  (exists U1 (e1: Ef1 U1) k1,
+    t1 ≈ Vis (effect EE1 e1) k1 /\
     REv U1 U2 e1 e2 /\
-      (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
-                     rutt REv RAns RR ErrorEvs (k1 v1) (k2 v2)))
-  \/ ErrorEvs E1 = true.
+    (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
+     @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 v1) (k2 v2)))
+  \/ WillCutoff EE1 t1.
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
-  setoid_rewrite (itree_eta t1). remember (VisF e2 k2) as ot2; revert Heqot2.
+  setoid_rewrite (itree_eta t1).
+  remember (VisF (effect EE2 e2) k2) as ot2; revert Heqot2.
   induction Hrutt; intros; try discriminate; subst.
-  - inversion Heqot2; subst B. inversion_sigma; rewrite <- eq_rect_eq in *;
+  - left.
+    inversion Heqot2; subst B. inversion_sigma; rewrite <- eq_rect_eq in *;
       subst; rename A into U1.
-    left.
+    eapply IsoInjection1 in H3_0; auto.
+    inv H3_0.
     exists U1, e1, k1; split. reflexivity. split; auto.
     intros v1 v2 HAns. specialize (H0 v1 v2 HAns). red in H0. now pclearbot.
-  - right; auto.  
+  - right; exists A, e1, k1; reflexivity.
+  - left. dependent destruction Heqot2.
+    eapply IsoCongruence21 in x; intuition.  
   - destruct (IHHrutt eq_refl) as [[U1 [e1 [k1 [Ht0 HAns]]]] | H].
     + rewrite <- itree_eta in Ht0.
       left.
       exists U1, e1, k1; split; auto. now rewrite tau_eutt.
-    + right; auto.  
+    + destruct H as [T [e0 [k0 H0]]].
+      punfold H0.
+      red in H0; simpl in H0.
+      dependent destruction H0.           
+      * setoid_rewrite <- x in Hrutt. 
+        dependent destruction Hrutt.
+        -- eapply IsoCongruence12 in x0; intuition.
+        -- right. exists T, e0, k1.
+           eapply eqit_Tau_l.
+           rewrite itree_eta.
+           rewrite <- x0; reflexivity.
+        -- eapply IsoCongruence21 in x; intuition.   
+      * right. exists T, e0, k0.
+        eapply eqit_Tau_l.
+        setoid_rewrite itree_eta.
+        rewrite <- x.
+        eapply eqit_Tau_l; simpl.
+        pstep; auto. 
 Qed.
 
-Lemma rutt_inv_Vis U1 U2 (e1: E1 U1) (e2: E2 U2)
+Lemma rutt_inv_Vis U1 U2 (e1: Ef1 U1) (e2: Ef2 U2)
     (k1: U1 -> itree E1 R1) (k2: U2 -> itree E2 R2):
-  rutt REv RAns RR ErrorEvs (Vis e1 k1) (Vis e2 k2) ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR
+    (Vis (effect EE1 e1) k1) (Vis (effect EE2 e2) k2) ->
   (forall u1 u2, RAns U1 U2 e1 u1 e2 u2 ->
-                 rutt REv RAns RR ErrorEvs (k1 u1) (k2 u2))
-  \/ ErrorEvs E1 = true.
+      @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR (k1 u1) (k2 u2)).
 Proof.
-  intros H.
-  remember (ErrorEvs E1) as E.
-  destruct E.
-  right; auto.
-  left.
-  intros u1 u2 Hans. punfold H.
-  apply ruttF_inv_VisF with (v1 := u1) (v2 := u2) in H. pclearbot; auto.
-  rewrite HeqE; auto.
-  assumption.
+  intros H u1 u2 Hans. punfold H.
+  apply ruttF_inv_VisF with (v1 := u1) (v2 := u2) in H; auto.
+  pclearbot; auto.
 Qed.
 End ConstructionInversion.
 
+(*
+Lemma will_cutoff_inv_l t1 t2 :
+  WillCutoff EE1 t1 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
+Proof.  
+  intros [T [e0 [k0 H1]]].
+  pcofix CIH.
+  pstep; red.
+  rewrite H1.
+  econstructor.
+Qed.  
+
+Lemma cutoff_inv_r t1 t2 :
+  DoCutoff EE2 t2 ->
+  @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR t1 t2.
+Proof.
+  intros [T [e0 [k0 H1]]].
+  pcofix CIH.
+  pstep; red.
+  rewrite H1.
+  econstructor.
+Qed.  
+*)
 
 (************************************************************)
 

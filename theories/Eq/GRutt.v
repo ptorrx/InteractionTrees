@@ -144,6 +144,8 @@ Section RuttF.
   Qed.
 End RuttF.
 
+Check @rutt.
+
 Tactic Notation "fold_ruttF" hyp(H) :=
   try punfold H;
   try red in H;
