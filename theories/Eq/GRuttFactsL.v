@@ -21,7 +21,7 @@ From ITree Require Import
   ITreeFacts
   Core.Subevent
   Basics.HeterogeneousRelations
-  Eq.GRutt
+  Eq.GRuttL
   Props.Leaf.
 
 (* Extra construction lemmas *)
@@ -117,7 +117,7 @@ Proof.
       specialize (H0 a b HAns). apply CIH. now pclearbot.  
   * rewrite ee1 in hh; intuition.
 Qed.
-
+      
 Lemma rutt_flip {E1 E2 R1 R2 REv RAns RR}
   {ErrorEvs: (Type -> Type) -> bool}
   (t1: itree E1 R1) (t2: itree E2 R2)

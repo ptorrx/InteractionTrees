@@ -305,8 +305,8 @@ Section ConstructionInversion.
   Context {R1 R2 : Type}.
   Context {Ef1 Ef2: Type -> Type}.
   Context {Er1 Er2: Type -> Type}.
-  Context {EE1 : FIso E1 (Ef1 +' Er1)}.
-  Context {EE2 : FIso E2 (Ef2 +' Er2)}.
+  Context (EE1 : FIso E1 (Ef1 +' Er1)).
+  Context (EE2 : FIso E2 (Ef2 +' Er2)).
 
 (* loose version: relations on all events *)  
   Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop).
