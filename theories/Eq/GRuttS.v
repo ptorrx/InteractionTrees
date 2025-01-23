@@ -36,14 +36,119 @@ Import Monads.
 Import MonadNotation.
 Local Open Scope monad_scope.
 
+
 (** Auxiliary ********************************************************)
 
-Class FIso (E1 E2: Type -> Type) := FI {
+Class FIso (E1 E2: Type -> Type) : Type := FI {
     mfun1: E1 -< E2 ;
     mfun2: E2 -< E1 ; 
     mid12 : forall T x, mfun1 T (mfun2 T x) = x ; 
     mid21 : forall T x, mfun2 T (mfun1 T x) = x ;
 }.
+
+Global Instance FIsoRev {E1 E2} (X: FIso E1 E2) : FIso E2 E1.
+destruct X.
+econstructor; auto.
+Defined.
+
+Global Instance FIsoId E : FIso E E.
+econstructor; auto.
+Defined.
+
+Global Instance FIsoTrans {E1 E2 E3} (X: FIso E1 E2) (Y: FIso E2 E3) :
+  FIso E1 E3.
+destruct X.
+destruct Y.
+set (mf1 := fun X x => mfun5 X (mfun3 X x)).
+set (mf2 := fun X x => mfun4 X (mfun6 X x)).
+econstructor; eauto; intros.
+- instantiate (1:= mf2).
+  instantiate (1:= mf1).
+  subst mf1 mf2; simpl; intros; auto.
+  rewrite mid13.
+  rewrite mid14; auto. 
+- subst mf1 mf2; simpl; auto.
+  rewrite mid23.
+  rewrite mid22; auto.
+Defined.  
+  
+Global Instance FIsoSum {E1 E2 E3 E4} (X: FIso E1 E2) (Y: FIso E3 E4) :
+  FIso (E1 +' E3) (E2 +' E4).
+destruct X.
+destruct Y.
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum;
+  simpl; intros.
+- destruct x.
+  + rewrite mid13; auto.
+  + rewrite mid14; auto.
+- destruct x.
+  + rewrite mid22; auto.
+  + rewrite mid23; auto.
+Defined.
+
+Global Instance FIsoIdL E : FIso E (E +' void1).
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun; 
+  simpl; intros; auto.
+destruct x; auto.
+destruct v.
+Defined.
+
+Global Instance FIsoIdR E : FIso E (void1 +' E).
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun; 
+  simpl; intros; auto.
+destruct x; auto.
+destruct v.
+Defined.
+
+Global Instance FIsoRAssoc E1 E2 E3 :
+  FIso ((E1 +' E2) +' E3) (E1 +' (E2 +' E3)).
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun;
+  simpl; intros; auto; destruct x; auto; destruct s; auto.
+Defined.
+
+Global Instance FIsoLAssoc E1 E2 E3 :
+  FIso (E1 +' (E2 +' E3)) ((E1 +' E2) +' E3).
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun;
+  simpl; intros; auto; destruct x; auto; destruct s; auto.
+Defined.
+
+Global Instance FIsoComm E1 E2 : FIso (E1 +' E2) (E2 +' E1).
+econstructor;
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun;
+  simpl; intros; auto; destruct x; auto. 
+Defined.
+
+(**********)
+
+Global Instance FIso_aux1 E1 E2 E3 :
+  FIso ((E1 +' void1) +' (E2 +' E3)) ((E1 +' E2) +' E3).
+assert (FIso ((E1 +' void1) +' (E2 +' E3)) (E1 +' (E2 +' E3))) as H.
+{ eapply (FIsoSum (FIsoRev (FIsoIdL E1)) (FIsoId (E2 +' E3))). }
+eapply (FIsoTrans H (FIsoLAssoc E1 E2 E3)).
+Defined.
+
+Global Instance FIso_aux2 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
+  FIso (E1 +' E2) ((E1 +' E3) +' E4).
+eapply (FIsoTrans (FIsoSum (FIsoIdL E1) X) (FIso_aux1 E1 E3 E4)).
+Defined.
+  
+(*********)
 
 Section ProjAux.
   Context {E: Type -> Type}.

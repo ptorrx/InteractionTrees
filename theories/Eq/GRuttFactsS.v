@@ -112,6 +112,21 @@ Definition lequiv {A B} : Type :=
   ((A -> B) * (B -> A))%type.
 *)
 
+(*
+Definition eq_FIso {E1 E2: Type -> Type} (X Y: FIso E1 E2) : Prop := 
+  X = Y.
+
+Global Instance FIso_Proper (X: forall E1 E2: Type -> Type, FIso E1 E2) :
+  Proper (eq_tfun ==> eq_tfun ==> eq_FIso) X.
+Proof.
+  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
+  intros x y H x0 y0 H0.
+  eapply functional_extensionality in H; auto.
+  eapply functional_extensionality in H0; auto.
+  inv H; auto.
+Qed.  
+*)
+
 (**************************************************)
 
 Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
@@ -132,21 +147,6 @@ Proof.
   eapply (@forall_extensionality Type F1 F2) in A1; auto.
 Qed.
 
-(*
-Definition eq_FIso {E1 E2: Type -> Type} (X Y: FIso E1 E2) : Prop := 
-  X = Y.
-
-Global Instance FIso_Proper (X: forall E1 E2: Type -> Type, FIso E1 E2) :
-  Proper (eq_tfun ==> eq_tfun ==> eq_FIso) X.
-Proof.
-  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
-  intros x y H x0 y0 H0.
-  eapply functional_extensionality in H; auto.
-  eapply functional_extensionality in H0; auto.
-  inv H; auto.
-Qed.  
-*)
-
 Global Instance FIso_Proper :
   Proper (eq_tfun ==> eq_tfun ==> eq) FIso.
 Proof.
@@ -156,8 +156,6 @@ Proof.
   eapply functional_extensionality in H0; auto.
   inv H; auto.
 Qed.  
-
-
 
 (* We can't use eq_rel directly due to dependent quantification *)
 Definition eq_REv {E1 E2: Type -> Type}
@@ -225,7 +223,7 @@ Lemma flip_flip_RAns {E1 E2}
 Proof. reflexivity. Qed.
 
 
-(* Extra construction lemmas *)
+(** Extra construction lemmas ****************************************)
 
 Lemma rutt_trigger {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
   (EE1 : FIso E1 (Ef1 +' Er1))
@@ -467,25 +465,29 @@ Qed.
 (* Bind closure and bind lemmas. *)
 
 Section RuttBind.
-Context {E1 E2 : Type -> Type}.
-Context {R1 R2 : Type}.
-Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop).
-Context (RAns : forall (A B : Type), E1 A -> A -> E2 B -> B -> Prop).
-Context (RR : R1 -> R2 -> Prop).
-Context (ErrorEvs: (Type -> Type) -> bool).
+  Context {E1 E2: Type -> Type}.
+  Context {R1 R2 : Type}.
+  Context {Ef1 Ef2: Type -> Type}.
+  Context {Er1 Er2: Type -> Type}.
+  Context (EE1 : FIso E1 (Ef1 +' Er1)).
+  Context (EE2 : FIso E2 (Ef2 +' Er2)).
+
+  Context (REv : forall (A B : Type), Ef1 A -> Ef2 B -> Prop).
+  Context (RAns : forall (A B : Type), Ef1 A -> A -> Ef2 B -> B -> Prop).
+  Context (RR : R1 -> R2 -> Prop).
 
 Inductive rutt_bind_clo (r : itree E1 R1 -> itree E2 R2 -> Prop) :
   itree E1 R1 -> itree E2 R2 -> Prop :=
 | rbc_intro_h U1 U2 (RU : U1 -> U2 -> Prop) t1 t2 k1 k2
-      (EQV: rutt REv RAns RU ErrorEvs t1 t2)
+      (EQV: rutt EE1 EE2 REv RAns RU t1 t2)
       (REL: forall u1 u2, RU u1 u2 -> r (k1 u1) (k2 u2))
   : rutt_bind_clo r (ITree.bind t1 k1) (ITree.bind t2 k2)
 .
 Hint Constructors rutt_bind_clo: core.
 
 Lemma rutt_clo_bind :
-  rutt_bind_clo <3= gupaco2 (rutt_ REv RAns RR ErrorEvs)
-                            (euttge_trans_clo RR ErrorEvs).
+  rutt_bind_clo <3= gupaco2 (rutt_ EE1 EE2 REv RAns RR)
+                            (euttge_trans_clo EE1 EE2 RR).
 Proof.
   intros rr. gcofix CIH. intros. destruct PR.
   gclo; econstructor; auto_ctrans_eq.
@@ -500,6 +502,7 @@ Proof.
   - gstep. econstructor; eauto 7 with paco.
     intros. specialize (H0 a b H1). pclearbot. eauto 7 with paco.
   - gstep. econstructor; auto.
+  - gstep. econstructor; auto.  
   - gclo. econstructor; auto_ctrans_eq; cycle -1; eauto; try reflexivity.
     eapply eqit_Tau_l. rewrite unfold_bind. reflexivity.
   - gclo. econstructor; auto_ctrans_eq; cycle -1; eauto; try reflexivity.
@@ -508,17 +511,19 @@ Qed.
 
 End RuttBind.
 
-Lemma rutt_bind {E1 E2 R1 R2 T1 T2}
-      (REv: forall A B, E1 A -> E2 B -> Prop)
-      (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop)
+Lemma rutt_bind {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+      (EE1 : FIso E1 (Ef1 +' Er1))
+      (EE2 : FIso E2 (Ef2 +' Er2))
+      (REv: forall A B, Ef1 A -> Ef2 B -> Prop)
+      (RAns: forall A B, Ef1 A -> A -> Ef2 B -> B -> Prop)
       (RR: R1 -> R2 -> Prop)
-      (ErrorEvs: (Type -> Type) -> bool)
+      {T1 T2}
       (RT: T1 -> T2 -> Prop) t1 t2 k1 k2 :
-    rutt REv RAns RR ErrorEvs t1 t2 ->
+    rutt EE1 EE2 REv RAns RR t1 t2 ->
     (forall r1 r2,
       RR r1 r2 ->
-      rutt REv RAns RT ErrorEvs (k1 r1) (k2 r2)) ->
-    rutt REv RAns RT ErrorEvs (ITree.bind t1 k1) (ITree.bind t2 k2).
+      rutt EE1 EE2 REv RAns RT (k1 r1) (k2 r2)) ->
+    rutt EE1 EE2 REv RAns RT (ITree.bind t1 k1) (ITree.bind t2 k2).
 Proof.
   intros. ginit.
   (* For some reason [guclo] fails, apparently trying to infer the type in a
@@ -529,26 +534,79 @@ Qed.
 
 
 Section RuttMrec.
-  Context (D1 D2 E1 E2 : Type -> Type)
-    (bodies1 : D1 ~> itree (D1 +' E1)) (bodies2 : D2 ~> itree (D2 +' E2)).
-  Context (RPre : prerel E1 E2) (RPreInv : prerel D1 D2)
-    (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
-  Context (ErrorEvs: (Type -> Type) -> bool).
+  Context {D1 D2 E1 E2 : Type -> Type}.
+  Context {Ef1 Ef2: Type -> Type}.
+  Context {Er1 Er2: Type -> Type}.
 
-  Context (Hbodies : forall A B (d1 : D1 A) (d2 : D2 B), 
-              RPreInv A B d1 d2 -> 
-              rutt (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
-                (fun (a : A) (b : B) =>
-                   RPostInv A B d1 a d2 b)
-                 ErrorEvs (bodies1 A d1) (bodies2 B d2) ).
+  Context (EE1 : FIso E1 (Ef1 +' Er1))
+          (EE2 : FIso E2 (Ef2 +' Er2)).
+            
+  Context (bodies1 : D1 ~> itree (D1 +' E1))
+          (bodies2 : D2 ~> itree (D2 +' E2)).
+  
+  Context (RPre : prerel Ef1 Ef2) (RPreInv : prerel D1 D2)
+          (RPost : postrel Ef1 Ef2) (RPostInv : postrel D1 D2).
+
+                (*
+                (Df1 +' Ef1) (Df2 +' Ef2)
+                (Dr1 +' Er1) (Dr2 +' Er2)
+                *)  
+
+                (*
+                (D1 +' Ef1) (D2 +' Ef2)
+                (void1 +' Er1) (void1 +' Er2)
+                *)  
+
+                (* (X: FIso D1 (D1 +' void1)) (Y: FIso E1 (Ef1 +' Er1)) 
+                   == FIsoSum ==> 
+                   FIso (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
+                   == ?? ==>
+                   FIso ((D1 +' void1) +' (Ef1 +' Er1))
+                        ((D1 +' Ef1) +' Er1)  
+                   == trans ==>
+                   FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
+                 *) 
+(* 
+
+    FIsoIdL ===================
+ 
+           >> D1 (D1 +' void1)         (Hyp) >> E1 (Ef1 +' Er1) 
+
+  FIsoSum ------------------------------------------------------ 
+           (1) >> (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
+             
+
+      ??? =======================================
+           (2) >> ((D1 +' void1) +' (Ef1 +' Er1))
+                  ((D1 +' Ef1) +' Er1)  
+
+
+                     (1)      (2)                     
+     trans --------------------------------------- 
+            FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
+                 
+*) 
+ 
+  Context (Hbodies : forall R1 R2 (d1 : D1 R1) (d2 : D2 R2), 
+              RPreInv R1 R2 d1 d2 -> 
+              @rutt (D1 +' E1) (D2 +' E2)
+                R1 R2
+                (D1 +' Ef1) (D2 +' Ef2) Er1 Er2
+                (FIso_aux2 D1 EE1)
+                (FIso_aux2 D2 EE2)               
+                (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
+                (fun (v1 : R1) (v2 : R2) =>
+                   RPostInv R1 R2 d1 v1 d2 v2)
+                     (bodies1 R1 d1) (bodies2 R2 d2) ).
 
 
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
-      rutt (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
-        RR ErrorEvs t1 t2 ->
-      rutt RPre RPost RR ErrorEvs
-        (interp_mrec bodies1 t1) (interp_mrec bodies2 t2).
+      rutt (FIso_aux2 D1 EE1) (FIso_aux2 D2 EE2)
+        (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
+               RR t1 t2 -> 
+      rutt EE1 EE2 RPre RPost
+        RR (interp_mrec bodies1 t1) (interp_mrec bodies2 t2).
   Proof.
     ginit. gcofix CIH.
     intros t1 t2 Ht12. punfold Ht12. red in Ht12.
