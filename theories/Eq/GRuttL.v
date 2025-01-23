@@ -38,7 +38,7 @@ Local Open Scope monad_scope.
 
 (** Auxiliary ********************************************************)
 
-Class FIso (E1 E2: Type -> Type) := {
+Class FIso (E1 E2: Type -> Type) := FI {
     mfun1: E1 -< E2 ;
     mfun2: E2 -< E1 ; 
     mid12 : forall T x, mfun1 T (mfun2 T x) = x ; 
@@ -263,11 +263,6 @@ Section RuttF.
     intros H. dependent destruction H; eauto. 
   Qed.
   
-  Ltac unfold_rutt :=
-    (try match goal with [|- rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ ] => red end);
-    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ |- _ ] =>
-                              red in H end).
-
   Lemma fold_ruttF:
     forall (t1: itree E1 R1) (t2: itree E2 R2) ot1 ot2,
     ruttF (upaco2 rutt_ bot2) ot1 ot2 ->
@@ -280,11 +275,18 @@ Section RuttF.
 
 End RuttF.
 
+
+Ltac unfold_rutt :=
+    (match goal with [ |- rutt_ _ _ _ _ _ _ _ _ ] => red end) ;
+    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ _ |- _ ] =>
+                              red in H end).
+
 Tactic Notation "fold_ruttF" hyp(H) :=
   try punfold H;
   try red in H;
   match type of H with
-  | ruttF ?_REV ?_RANS ?_RR (upaco2 (rutt_ ?_REV ?_RANS ?_RR) bot2)
+  | ruttF ?_EE1 ?_EE2 ?_REV ?_RANS ?_RR
+      (upaco2 (rutt_ ?_EE1 ?_EE2 ?_REV ?_RANS ?_RR) bot2)
       ?_OT1 ?_OT2 =>
       match _OT1 with
       | observe _ => idtac

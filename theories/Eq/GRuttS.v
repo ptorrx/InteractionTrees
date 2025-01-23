@@ -38,7 +38,7 @@ Local Open Scope monad_scope.
 
 (** Auxiliary ********************************************************)
 
-Class FIso (E1 E2: Type -> Type) := {
+Class FIso (E1 E2: Type -> Type) := FI {
     mfun1: E1 -< E2 ;
     mfun2: E2 -< E1 ; 
     mid12 : forall T x, mfun1 T (mfun2 T x) = x ; 
@@ -266,11 +266,6 @@ Section RuttF.
     - eapply IsoCongruence21 in x; eauto; intuition.  
   Qed.
     
-  Ltac unfold_rutt :=
-    (try match goal with [|- rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ ] => red end);
-    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ _ _ _ _ _ _ |- _ ] =>
-                              red in H end).
-
   Lemma fold_ruttF:
     forall (t1: itree E1 R1) (t2: itree E2 R2) ot1 ot2,
     ruttF (upaco2 rutt_ bot2) ot1 ot2 ->
@@ -283,11 +278,18 @@ Section RuttF.
 
 End RuttF.
 
+
+Ltac unfold_rutt :=
+    (match goal with [ |- rutt_ _ _ _ _ _ _ _ _ ] => red end) ;
+    (repeat match goal with [H: rutt_ _ _ _ _ _ _ _ _ |- _ ] =>
+                              red in H end).
+
 Tactic Notation "fold_ruttF" hyp(H) :=
   try punfold H;
   try red in H;
   match type of H with
-  | ruttF ?_REV ?_RANS ?_RR (upaco2 (rutt_ ?_REV ?_RANS ?_RR) bot2)
+  | ruttF ?_EE1 ?_EE2 ?_REV ?_RANS ?_RR
+      (upaco2 (rutt_ ?_EE1 ?_EE2 ?_REV ?_RANS ?_RR) bot2)
       ?_OT1 ?_OT2 =>
       match _OT1 with
       | observe _ => idtac
@@ -315,7 +317,7 @@ Section ConstructionInversion.
   Context (REv : forall (A B : Type), Ef1 A -> Ef2 B -> Prop).
   Context (RAns : forall (A B : Type), Ef1 A -> A -> Ef2 B -> B -> Prop).
   Context (RR : R1 -> R2 -> Prop).
-
+  
 Lemma rutt_Ret r1 r2:
   RR r1 r2 ->
   @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 REv RAns RR 

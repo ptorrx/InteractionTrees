@@ -354,8 +354,6 @@ Proof.
   
   rewrite (itree_eta t1) in Heutt.
   rewrite (itree_eta t2).
-
-(****)
   
   move Hrutt before CIH. revert_until Hrutt.
   induction Hrutt as [ r1 r2 | m1 m2 | | | | m1 ot2 | ot1 m2 ];
@@ -363,7 +361,7 @@ Proof.
 
   (* EqRet: t1 = Ret r1 ≈ t1'; we can rewrite away the Taus with the euttge
      closure and finish immediately with EqRet. *)
-  * apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
+  - apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
     (* gstep. apply EqRet; auto. *)
     gfinal; right; pstep. now apply EqRet.
 
@@ -371,7 +369,7 @@ Proof.
      proceed, which requires that [desobs m1]. We then have to restart
      analyzing based on m1; the Ret case repeats EqRet above, while the Vis
      case repeats EqVis below. *)
-  * punfold Heutt; red in Heutt; cbn in Heutt.
+  - punfold Heutt; red in Heutt; cbn in Heutt.
     rewrite itree_eta. pclearbot. fold_ruttF H.
     remember (TauF m1) as ot1; revert m1 m2 H Heqot1.
     induction Heutt as [|m1_bis m1'| |m1_bis ot1' _|t1_bis m1'];
@@ -396,10 +394,9 @@ Proof.
             apply EqVis; auto. intros v1 v2 HAns. specialize (H0 v1 v2 HAns).
             hnf in H0; hnf. pclearbot; right. apply (CIH (k1 v1)); auto.
             apply Hk1k1'.
-          * inv Heqm1.
-            dependent destruction H2.
-            dependent destruction H1.
+          * dependent destruction Heqm1.
             gstep. apply EqErrL; auto.
+          * gstep. apply EqErrR; auto.
           * idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
         - idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
@@ -409,59 +406,62 @@ Proof.
      continuations are "only" ≈. The up-to-eutt principle that enforces Vis
      steps could work, but we don't have it for rutt. Instead we peel the Tau
      layers off t1' with a manual induction. *)
-  * rewrite itree_eta. gfinal; right; pstep.
+  - rewrite itree_eta. gfinal; right; pstep.
     rename H0 into HAns. punfold Heutt; red in Heutt; cbn in Heutt.
-    remember (VisF e1 k1) as m1; revert Heqm1.
+    remember (VisF (effect EE1 e1) k1) as m1; revert Heqm1.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
       apply EqVis; auto. intros a b HAns'. specialize (HAns a b HAns').      
       hnf in HAns; hnf. pclearbot; right. apply (CIH (k1 a)); auto. apply REL.
     + (* eapply EqTauL. eapply IHHeutt. auto. *)
-      now apply EqTauL, IHHeutt.
-      
-  * rewrite itree_eta. gfinal; right; pstep.
-    remember (VisF e1 k1) as m1; revert Heqm1.
+      now apply EqTauL, IHHeutt.      
+  - rewrite itree_eta. gfinal; right; pstep.
+     
+    remember (VisF (cutoff EE1 e1) k1) as m1; revert Heqm1.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
       apply EqErrL; auto.
     + apply EqTauL. eapply IHHeutt; auto.
-          
+    
+  - gstep; red. econstructor; auto.
+    
   (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
      apply immediately; then handle the added Tau in ≈, which is trivial. *)
-  * apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
+  - apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
     
   (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
      way we rewrite t1, so we can follow down and recurse. *)
-  * rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
-Qed.
-
-#[global] Instance rutt_Proper_R3 {E1 E2 R1 R2} :
+  - rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
+Qed.    
+    
+#[global] Instance rutt_Proper_R3 {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2)) :
   Proper (eq_REv         (* REv *)
       ==> eq_RAns        (* RAns *)
       ==> @eq_rel R1 R2  (* RR *)
-      ==> loc_const_ErrorEvs E1 E2   (* ErrorEvs *)
       ==> eutt eq        (* t1 *)
       ==> eutt eq        (* t2 *)
-      ==> iff) (@rutt E1 E2 R1 R2).
+      ==> iff) (@rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2).
 Proof.
   intros REv REv2 HREv RAns RAns2 HRAns RR RR2 HRR
-    ErrorEvs1 ErrorEvs2 HErrorEvs t1 t1' Ht1 t2 t2' Ht2.
-  destruct HErrorEvs as [H [H0 H1]].
+         t1 t1' Ht1 t2 t2' Ht2.
   rewrite <- HREv, <- HRAns, <- HRR; clear HREv REv2 HRAns RAns2 HRR RR2.
   split; intros Hrutt.
-  - eapply rutt_cong_eutt; eauto.
+  
+  - eapply rutt_cong_eutt; eauto.    
     rewrite rutt_flip in *; eauto.
     rewrite rutt_flip in Hrutt; eauto.
     eapply rutt_cong_eutt; eauto.
-    rewrite <- H1; auto.
+    rewrite rutt_flip; eauto.
     
   - symmetry in Ht1, Ht2.
     eapply rutt_cong_eutt; eauto.
     rewrite rutt_flip in *; eauto.
     rewrite rutt_flip in Hrutt; eauto.
     eapply rutt_cong_eutt; eauto.
-    rewrite H1; auto.
+    rewrite rutt_flip; eauto.
 Qed.
 
 (* Bind closure and bind lemmas. *)
