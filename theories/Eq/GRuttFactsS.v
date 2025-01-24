@@ -619,14 +619,43 @@ Section RuttMrec.
       pclearbot. gfinal. eauto.
     - apply simpobs in Heqot1, Heqot2. rewrite Heqot1, Heqot2.
       repeat rewrite unfold_interp_mrec. cbn.
-      inv H.
-      + apply inj_pair2 in H1, H4. subst. gstep. constructor.
+      dependent destruction H.
+      + unfold effect, resum, LSub.
+        remember (FIso_aux2 D1 EE1) as FI1.
+        remember (FIso_aux2 D2 EE2) as FI2.
+        destruct FI1; simpl.
+        destruct FI2; simpl.
+        assert (mfun2 A (inl1 (inl1 e1)) = inl1 e1) as H1.
+        { admit. }
+        rewrite H1.
+        assert (mfun3 B (inl1 (inl1 d1)) = inl1 d1) as H2.
+        { admit. }
+        rewrite H2.        
+        gstep. constructor.
         gfinal. left. eapply CIH.
         eapply rutt_bind; eauto.
-        intros. cbn in H. clear - H H0.
-        specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H)).
+        intros. cbn in H3. clear - H3 H0.
+        specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H3)).
         pclearbot. auto.
-      + apply inj_pair2 in H1, H4. subst. gstep. constructor.
+      + (* apply inj_pair2 in H1, H4. *)
+        unfold effect, resum, LSub.
+        remember (FIso_aux2 D1 EE1) as FI1.
+        remember (FIso_aux2 D2 EE2) as FI2.
+        destruct FI1; simpl.
+        destruct FI2; simpl.
+        destruct EE1.
+        assert (mfun2 A (inl1 (inr1 e2)) = inr1 (mfun5 A (inl1 e2))) as H1.
+        { admit. }
+        rewrite H1.
+        destruct EE2.
+        assert (mfun3 B (inl1 (inr1 d2)) = inr1 (mfun7 B (inl1 d2))) as H2.
+        { admit. }
+        rewrite H2.
+        gstep. red. simpl.
+
+        (****) 
+
+        constructor.
         auto. intros. repeat rewrite tau_euttge. gfinal. left. eapply CIH.
         clear - H0 H. specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H)).
         pclearbot. auto.
