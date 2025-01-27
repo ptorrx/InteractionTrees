@@ -24,29 +24,41 @@ From ITree Require Import
   Eq.GRuttL
   Props.Leaf.
 
-(* Extra construction lemmas *)
 
-Lemma rutt_trigger {E1 E2 R1 R2 REv RAns RR}
-  {ErrorEvs: (Type -> Type) -> bool}
-  (e1: E1 R1) (e2: E2 R2):
-  (REv _ _ e1 e2: Prop) -> 
-  (forall t1 t2, (RAns _ _ e1 t1 e2 t2: Prop) -> (RR t1 t2: Prop)) -> 
-  rutt REv RAns RR ErrorEvs (trigger e1) (trigger e2).
+Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
+  forall A, E1 A = E2 A.
+
+Global Instance subsum_eq_Proper :
+  Proper (eq_tfun ==> eq_tfun ==> eq) (fun X Y => X -< Y).
 Proof.
-  intros. apply rutt_Vis; auto.
-  intros. apply rutt_Ret; auto.
+  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
+  intros x y H x0 y0 H0.
+  assert (forall T : Type, (x T -> x0 T) = (y T -> y0 T)) as A1.
+  { intro T; rewrite <- H0.
+    rewrite <- H; auto. }  
+  set (F1 := fun t => x t -> x0 t).
+  set (F2 := fun t => y t -> y0 t).
+  assert (forall T, F1 T = F2 T) as A2.
+  { subst F1 F2. simpl; auto. }
+  eapply (@forall_extensionality Type F1 F2) in A1; auto.
 Qed.
 
-(* Morphisms related to [REv] and [RAns]. Both behave nicely up to quantified
-   relation equality. There are also symmetry results when flipped.
-*)
+Global Instance FIso_Proper :
+  Proper (eq_tfun ==> eq_tfun ==> eq) FIso.
+Proof.
+  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
+  intros x y H x0 y0 H0.
+  eapply functional_extensionality in H; auto.
+  eapply functional_extensionality in H0; auto.
+  inv H; auto.
+Qed.  
 
 (* We can't use eq_rel directly due to dependent quantification *)
 Definition eq_REv {E1 E2: Type -> Type}
-  (REv1 REv2: forall A B, E1 A -> E2 B -> Prop) :=
+  (REv1 REv2 : forall A B, E1 A -> E2 B -> Prop) : Prop := 
   forall A B, eq_rel (REv1 A B) (REv2 A B).
 
-#[global] Instance eq_REv_Equivalence {E1 E2}: Equivalence (@eq_REv E1 E2).
+#[global] Instance eq_REv_Equivalence {E1 E2} : Equivalence (@eq_REv E1 E2).
 Proof.
   constructor.
   - red. red. reflexivity.
@@ -91,39 +103,48 @@ Proof.
   - red; red. intros * H1 H2. red in H1, H2. etransitivity; eauto.
 Qed.
 
-Definition flip_RAns {E1 E2} (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop) :=
-  fun B A e2 (b:B) e1 (a:A) => flip (@RAns_pair E1 E2 RAns A B) (e2, b) (e1, a).
+Definition flip_RAns {E1 E2}
+  (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop) :=
+  fun B A e2 (b:B) e1 (a:A) =>
+    flip (@RAns_pair E1 E2 RAns A B) (e2, b) (e1, a).
 
 Lemma flip_RAns_iff {E1 E2 A B} RAns:
-  forall e1 (a:A) e2 (b:B), @flip_RAns E1 E2 RAns B A e2 b e1 a <-> RAns _ _ e1 a e2 b.
+  forall e1 (a:A) e2 (b:B), @flip_RAns E1 E2 RAns B A e2 b e1 a <->
+                              RAns _ _ e1 a e2 b.
 Proof. reflexivity. Qed.
 
-Lemma flip_flip_RAns {E1 E2} (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop):
+Lemma flip_flip_RAns {E1 E2}
+  (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop):
   eq_RAns (flip_RAns (flip_RAns RAns)) RAns.
 Proof. reflexivity. Qed.
 
-Lemma rutt_flip_impl {E1 E2 R1 R2 REv RAns RR}
-  {ErrorEvs: (Type -> Type) -> bool}
-  (t1: itree E1 R1) (t2: itree E2 R2)
-  (ee1: ErrorEvs E1 = false) :
-  rutt REv RAns RR ErrorEvs t1 t2 ->
-    rutt (flip_REv REv) (flip_RAns RAns) (flip RR) ErrorEvs t2 t1.
+
+(* Extra construction lemmas *)
+
+Lemma rutt_trigger {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2))
+  (REv : forall A B, E1 A -> E2 B -> Prop)
+  (RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop)
+  {RR : R1 -> R2 -> Prop} 
+  (e1: E1 R1) (e2: E2 R2) : 
+  (REv _ _ e1 e2: Prop) -> 
+  (forall t1 t2, (RAns _ _ e1 t1 e2 t2: Prop) -> (RR t1 t2: Prop)) -> 
+  rutt EE1 EE2 REv RAns RR (trigger e1) (trigger e2).
 Proof.
-  revert t1 t2; pcofix CIH; intros t1 t2 Hrutt;
-  punfold Hrutt; red in Hrutt; pstep; red.
-  induction Hrutt; try now constructor.
-  * apply EqTau. right. apply CIH. now pclearbot.
-  * apply EqVis. auto. intros b a HAns. cbn in HAns. right.
-      specialize (H0 a b HAns). apply CIH. now pclearbot.  
-  * rewrite ee1 in hh; intuition.
+  intros. apply rutt_Vis; auto.
+  intros. apply rutt_Ret; auto.
 Qed.
-      
-Lemma rutt_flip {E1 E2 R1 R2 REv RAns RR}
-  {ErrorEvs: (Type -> Type) -> bool}
-  (t1: itree E1 R1) (t2: itree E2 R2)
-  (ee1: ErrorEvs E1 = false) (ee2: ErrorEvs E2 = false) :
-  rutt REv RAns RR ErrorEvs t1 t2 <->
-    rutt (flip_REv REv) (flip_RAns RAns) (flip RR) ErrorEvs t2 t1.
+       
+Lemma rutt_flip {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2))
+  (REv : forall A B, E1 A -> E2 B -> Prop)
+  (RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop )
+  {RR : R1 -> R2 -> Prop} 
+  (t1: itree E1 R1) (t2: itree E2 R2) :
+  rutt EE1 EE2 REv RAns RR t1 t2 <->
+    rutt EE2 EE1 (flip_REv REv) (flip_RAns RAns) (flip RR) t2 t1.
 Proof.
   split; revert t1 t2; pcofix CIH; intros t1 t2 Hrutt;
   punfold Hrutt; red in Hrutt; pstep; red.
@@ -131,37 +152,27 @@ Proof.
     * apply EqTau. right. apply CIH. now pclearbot.
     * apply EqVis. auto. intros b a HAns. cbn in HAns. right.
       specialize (H0 a b HAns). apply CIH. now pclearbot.
-    * rewrite ee1 in hh; intuition.
   - induction Hrutt; try now constructor.
     * apply EqTau. right. apply CIH. now pclearbot.
     * apply EqVis. auto. intros b a HAns. cbn in HAns. right.
       specialize (H0 a b HAns). apply CIH. now pclearbot.
-    * rewrite ee2 in hh; intuition.  
 Qed.
-
-Definition eq_ErrorEvs (ErrorEvs1 ErrorEvs2 : (Type -> Type) -> bool) : Prop :=
-  forall E, ErrorEvs1 E = ErrorEvs2 E.         
-
-Definition loc_const_ErrorEvs (E1 E2: Type -> Type)
-  (ErrorEvs1 ErrorEvs2 : (Type -> Type) -> bool) : Prop :=
-  ErrorEvs1 E1 = false /\ ErrorEvs2 E2 = false
-  /\ eq_ErrorEvs ErrorEvs1 ErrorEvs2.         
 
 (* Progressive [Proper] instances for [rutt] and congruence with eutt. *)
 
-#[global] Instance rutt_Proper_R {E1 E2 R1 R2}:
+#[global] Instance rutt_Proper_R {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2)) :
   Proper (eq_REv         (* REv *)
       ==> eq_RAns        (* RAns *)       
       ==> @eq_rel R1 R2  (* RR *)
-      ==> eq_ErrorEvs    (* ErrorEvs *)
       ==> eq             (* t1 *)
       ==> eq             (* t2 *)
-      ==> iff) (@rutt E1 E2 R1 R2).
+      ==> iff) (@rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2).
 Proof.
   intros REv1 REv2 HREv RAns1 RAns2 HRAns RR1 RR2 HRR
-         ErrorEvs1 ErrorEvs2 HErrorEvs t1 _ <- t2 _ <-.
+         t1 _ <- t2 _ <-.
   split; intros Hrutt.
-
   - revert t1 t2 Hrutt; pcofix CIH; intros t1 t2 Hrutt.
     pstep. punfold Hrutt. red in Hrutt; red.
     hinduction Hrutt before CIH; intros; eauto using EqTauL, EqTauR.
@@ -172,8 +183,8 @@ Proof.
       { erewrite <- eq_RAns_iff. apply H1. assumption. }
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
-    * apply EqErrL.
-      rewrite <- HErrorEvs; auto. 
+    * apply EqErrL. 
+    * apply EqErrR.
       
   - revert t1 t2 Hrutt; pcofix CIH; intros t1 t2 Hrutt.
     pstep. punfold Hrutt. red in Hrutt; red.
@@ -186,45 +197,46 @@ Proof.
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
     * apply EqErrL.
-      rewrite HErrorEvs; auto. 
+    * apply EqErrR.  
 Qed.
 
-#[global] Instance rutt_Proper_R2 {E1 E2 R1 R2}:
+#[global] Instance rutt_Proper_R2 {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2)) :
   Proper (eq_REv         (* REv *)
       ==> eq_RAns        (* RAns *)
       ==> @eq_rel R1 R2  (* RR *)
-      ==> eq_ErrorEvs (* ErrorEvs *)
       ==> eq_itree eq    (* t1 *)
       ==> eq_itree eq    (* t2 *)
-      ==> iff) (@rutt E1 E2 R1 R2).
+      ==> iff) (@rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2).
 Proof.
   clear. intros REv1 REv2 HREv RAns1 RAns2 HRAns RR1 RR2 HRR
-           ErrorEvs1 ErrorEvs2 HErrorEvs t1 t1' Ht1 t2 t2' Ht2.
+           t1 t1' Ht1 t2 t2' Ht2.
   split; intros Hrutt.
 
   - rewrite <- HREv, <- HRAns, <- HRR; clear HREv REv2 HRAns RAns2 HRR RR2.
     ginit. gclo. econstructor; eauto with paco.
     * symmetry in Ht1. apply eq_sub_euttge in Ht1. apply Ht1.
     * symmetry in Ht2. apply eq_sub_euttge in Ht2. apply Ht2.
-    * rewrite HErrorEvs in Hrutt. eauto with paco. 
-    * intros; now subst.
-    * intros; now subst.
+    * intros. inv H; auto.
+    * intros. inv H; auto.
 
   - rewrite HREv, HRAns, HRR; clear HREv REv1 HRAns RAns1 HRR RR1.
     ginit. gclo. econstructor; eauto with paco.
     * apply eq_sub_euttge in Ht1. apply Ht1.
     * apply eq_sub_euttge in Ht2. apply Ht2.
-    * rewrite <- HErrorEvs in Hrutt. eauto with paco. 
-    * intros; now subst.
-    * intros; now subst.
+    * intros. inv H; auto.
+    * intros. inv H; auto.  
 Qed.
 
-Lemma rutt_cong_eutt {E1 E2 R1 R2} :
-  forall REv RAns RR (ErrorEvs: (Type -> Type) -> bool)
+Lemma rutt_cong_eutt {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2)) :
+  forall REv RAns RR
          (t1: itree E1 R1) t1' (t2: itree E2 R2),
-  rutt REv RAns RR ErrorEvs t1 t2 ->
+  rutt EE1 EE2 REv RAns RR t1 t2 ->
   t1 ≈ t1' ->
-  rutt REv RAns RR ErrorEvs t1' t2.
+  rutt EE1 EE2 REv RAns RR t1' t2.
 Proof.
   (* First by coinduction; then do an induction on Hrutt to expose the ruttF
      linking t1 and t2; then an induction on Heutt to expose the relation
@@ -236,14 +248,14 @@ Proof.
   
   rewrite (itree_eta t1) in Heutt.
   rewrite (itree_eta t2).
-
+  
   move Hrutt before CIH. revert_until Hrutt.
-  induction Hrutt as [ r1 r2 | m1 m2 | | | m1 ot2 | ot1 m2 ];
+  induction Hrutt as [ r1 r2 | m1 m2 | | | | m1 ot2 | ot1 m2 ];
     clear t1 t2; intros t1' Heutt.
 
   (* EqRet: t1 = Ret r1 ≈ t1'; we can rewrite away the Taus with the euttge
      closure and finish immediately with EqRet. *)
-  * apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
+  - apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
     (* gstep. apply EqRet; auto. *)
     gfinal; right; pstep. now apply EqRet.
 
@@ -251,7 +263,7 @@ Proof.
      proceed, which requires that [desobs m1]. We then have to restart
      analyzing based on m1; the Ret case repeats EqRet above, while the Vis
      case repeats EqVis below. *)
-  * punfold Heutt; red in Heutt; cbn in Heutt.
+  - punfold Heutt; red in Heutt; cbn in Heutt.
     rewrite itree_eta. pclearbot. fold_ruttF H.
     remember (TauF m1) as ot1; revert m1 m2 H Heqot1.
     induction Heutt as [|m1_bis m1'| |m1_bis ot1' _|t1_bis m1'];
@@ -276,10 +288,9 @@ Proof.
             apply EqVis; auto. intros v1 v2 HAns. specialize (H0 v1 v2 HAns).
             hnf in H0; hnf. pclearbot; right. apply (CIH (k1 v1)); auto.
             apply Hk1k1'.
-          * inv Heqm1.
-            dependent destruction H2.
-            dependent destruction H1.
+          * dependent destruction Heqm1.
             gstep. apply EqErrL; auto.
+          * gstep. apply EqErrR; auto.
           * idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
         - idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
@@ -289,7 +300,7 @@ Proof.
      continuations are "only" ≈. The up-to-eutt principle that enforces Vis
      steps could work, but we don't have it for rutt. Instead we peel the Tau
      layers off t1' with a manual induction. *)
-  * rewrite itree_eta. gfinal; right; pstep.
+  - rewrite itree_eta. gfinal; right; pstep.
     rename H0 into HAns. punfold Heutt; red in Heutt; cbn in Heutt.
     remember (VisF e1 k1) as m1; revert Heqm1.
     induction Heutt; intros; try discriminate.
@@ -297,75 +308,82 @@ Proof.
       apply EqVis; auto. intros a b HAns'. specialize (HAns a b HAns').      
       hnf in HAns; hnf. pclearbot; right. apply (CIH (k1 a)); auto. apply REL.
     + (* eapply EqTauL. eapply IHHeutt. auto. *)
-      now apply EqTauL, IHHeutt.
-      
-  * rewrite itree_eta. gfinal; right; pstep.
-    remember (VisF e1 k1) as m1; revert Heqm1.
+      now apply EqTauL, IHHeutt.      
+  - rewrite itree_eta. gfinal; right; pstep.
+     
+    remember (VisF (cutoff EE1 e1) k1) as m1; revert Heqm1.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
       apply EqErrL; auto.
     + apply EqTauL. eapply IHHeutt; auto.
-          
+    
+  - gstep; red. econstructor; auto.
+    
   (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
      apply immediately; then handle the added Tau in ≈, which is trivial. *)
-  * apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
+  - apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
     
   (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
      way we rewrite t1, so we can follow down and recurse. *)
-  * rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
-Qed.
-
-#[global] Instance rutt_Proper_R3 {E1 E2 R1 R2} :
+  - rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
+Qed.    
+    
+#[global] Instance rutt_Proper_R3 {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+  (EE1 : FIso E1 (Ef1 +' Er1))
+  (EE2 : FIso E2 (Ef2 +' Er2)) :
   Proper (eq_REv         (* REv *)
       ==> eq_RAns        (* RAns *)
       ==> @eq_rel R1 R2  (* RR *)
-      ==> loc_const_ErrorEvs E1 E2   (* ErrorEvs *)
       ==> eutt eq        (* t1 *)
       ==> eutt eq        (* t2 *)
-      ==> iff) (@rutt E1 E2 R1 R2).
+      ==> iff) (@rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2).
 Proof.
   intros REv REv2 HREv RAns RAns2 HRAns RR RR2 HRR
-    ErrorEvs1 ErrorEvs2 HErrorEvs t1 t1' Ht1 t2 t2' Ht2.
-  destruct HErrorEvs as [H [H0 H1]].
+         t1 t1' Ht1 t2 t2' Ht2.
   rewrite <- HREv, <- HRAns, <- HRR; clear HREv REv2 HRAns RAns2 HRR RR2.
   split; intros Hrutt.
-  - eapply rutt_cong_eutt; eauto.
+  
+  - eapply rutt_cong_eutt; eauto.    
     rewrite rutt_flip in *; eauto.
     rewrite rutt_flip in Hrutt; eauto.
     eapply rutt_cong_eutt; eauto.
-    rewrite <- H1; auto.
+    rewrite rutt_flip; eauto.
     
   - symmetry in Ht1, Ht2.
     eapply rutt_cong_eutt; eauto.
     rewrite rutt_flip in *; eauto.
     rewrite rutt_flip in Hrutt; eauto.
     eapply rutt_cong_eutt; eauto.
-    rewrite H1; auto.
+    rewrite rutt_flip; eauto.
 Qed.
 
 (* Bind closure and bind lemmas. *)
 
 Section RuttBind.
-Context {E1 E2 : Type -> Type}.
-Context {R1 R2 : Type}.
-Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop).
-Context (RAns : forall (A B : Type), E1 A -> A -> E2 B -> B -> Prop).
-Context (RR : R1 -> R2 -> Prop).
-Context (ErrorEvs: (Type -> Type) -> bool).
+  Context {E1 E2: Type -> Type}.
+  Context {R1 R2 : Type}.
+  Context {Ef1 Ef2: Type -> Type}.
+  Context {Er1 Er2: Type -> Type}.
+  Context (EE1 : FIso E1 (Ef1 +' Er1)).
+  Context (EE2 : FIso E2 (Ef2 +' Er2)).
+
+  Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop).
+  Context (RAns : forall (A B : Type), E1 A -> A -> E2 B -> B -> Prop).
+  Context (RR : R1 -> R2 -> Prop).
 
 Inductive rutt_bind_clo (r : itree E1 R1 -> itree E2 R2 -> Prop) :
   itree E1 R1 -> itree E2 R2 -> Prop :=
 | rbc_intro_h U1 U2 (RU : U1 -> U2 -> Prop) t1 t2 k1 k2
-      (EQV: rutt REv RAns RU ErrorEvs t1 t2)
+      (EQV: rutt EE1 EE2 REv RAns RU t1 t2)
       (REL: forall u1 u2, RU u1 u2 -> r (k1 u1) (k2 u2))
   : rutt_bind_clo r (ITree.bind t1 k1) (ITree.bind t2 k2)
 .
 Hint Constructors rutt_bind_clo: core.
 
 Lemma rutt_clo_bind :
-  rutt_bind_clo <3= gupaco2 (rutt_ REv RAns RR ErrorEvs)
-                            (euttge_trans_clo RR ErrorEvs).
+  rutt_bind_clo <3= gupaco2 (rutt_ EE1 EE2 REv RAns RR)
+                            (euttge_trans_clo EE1 EE2 RR).
 Proof.
   intros rr. gcofix CIH. intros. destruct PR.
   gclo; econstructor; auto_ctrans_eq.
@@ -380,6 +398,7 @@ Proof.
   - gstep. econstructor; eauto 7 with paco.
     intros. specialize (H0 a b H1). pclearbot. eauto 7 with paco.
   - gstep. econstructor; auto.
+  - gstep. econstructor; auto.  
   - gclo. econstructor; auto_ctrans_eq; cycle -1; eauto; try reflexivity.
     eapply eqit_Tau_l. rewrite unfold_bind. reflexivity.
   - gclo. econstructor; auto_ctrans_eq; cycle -1; eauto; try reflexivity.
@@ -388,17 +407,19 @@ Qed.
 
 End RuttBind.
 
-Lemma rutt_bind {E1 E2 R1 R2 T1 T2}
+Lemma rutt_bind {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
+      (EE1 : FIso E1 (Ef1 +' Er1))
+      (EE2 : FIso E2 (Ef2 +' Er2))
       (REv: forall A B, E1 A -> E2 B -> Prop)
       (RAns: forall A B, E1 A -> A -> E2 B -> B -> Prop)
       (RR: R1 -> R2 -> Prop)
-      (ErrorEvs: (Type -> Type) -> bool)
+      {T1 T2}
       (RT: T1 -> T2 -> Prop) t1 t2 k1 k2 :
-    rutt REv RAns RR ErrorEvs t1 t2 ->
+    rutt EE1 EE2 REv RAns RR t1 t2 ->
     (forall r1 r2,
       RR r1 r2 ->
-      rutt REv RAns RT ErrorEvs (k1 r1) (k2 r2)) ->
-    rutt REv RAns RT ErrorEvs (ITree.bind t1 k1) (ITree.bind t2 k2).
+      rutt EE1 EE2 REv RAns RT (k1 r1) (k2 r2)) ->
+    rutt EE1 EE2 REv RAns RT (ITree.bind t1 k1) (ITree.bind t2 k2).
 Proof.
   intros. ginit.
   (* For some reason [guclo] fails, apparently trying to infer the type in a
@@ -407,28 +428,39 @@ Proof.
   econstructor; eauto. intros; subst. gfinal. right. apply H0. eauto.
 Qed.
 
-
 Section RuttMrec.
-  Context (D1 D2 E1 E2 : Type -> Type)
-    (bodies1 : D1 ~> itree (D1 +' E1)) (bodies2 : D2 ~> itree (D2 +' E2)).
+  Context {D1 D2 E1 E2 : Type -> Type}.
+  Context {Ef1 Ef2: Type -> Type}.
+  Context {Er1 Er2: Type -> Type}.
+
+  Context (EE1 : FIso E1 (Ef1 +' Er1))
+          (EE2 : FIso E2 (Ef2 +' Er2)).
+            
+  Context (bodies1 : D1 ~> itree (D1 +' E1))
+          (bodies2 : D2 ~> itree (D2 +' E2)).
+  
   Context (RPre : prerel E1 E2) (RPreInv : prerel D1 D2)
-    (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
-  Context (ErrorEvs: (Type -> Type) -> bool).
-
-  Context (Hbodies : forall A B (d1 : D1 A) (d2 : D2 B), 
-              RPreInv A B d1 d2 -> 
-              rutt (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
-                (fun (a : A) (b : B) =>
-                   RPostInv A B d1 a d2 b)
-                 ErrorEvs (bodies1 A d1) (bodies2 B d2) ).
-
+          (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
+ 
+  Context (Hbodies : forall R1 R2 (d1 : D1 R1) (d2 : D2 R2), 
+              RPreInv R1 R2 d1 d2 -> 
+              @rutt (D1 +' E1) (D2 +' E2)
+                R1 R2
+                (D1 +' Ef1) (D2 +' Ef2) Er1 Er2
+                (FIso_aux2 D1 EE1)
+                (FIso_aux2 D2 EE2)               
+                (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
+                (fun (v1 : R1) (v2 : R2) =>
+                   RPostInv R1 R2 d1 v1 d2 v2)
+                     (bodies1 R1 d1) (bodies2 R2 d2) ).
 
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
-      rutt (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
-        RR ErrorEvs t1 t2 ->
-      rutt RPre RPost RR ErrorEvs
-        (interp_mrec bodies1 t1) (interp_mrec bodies2 t2).
+      rutt (FIso_aux2 D1 EE1) (FIso_aux2 D2 EE2)
+        (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
+               RR t1 t2 -> 
+      rutt EE1 EE2 RPre RPost
+        RR (interp_mrec bodies1 t1) (interp_mrec bodies2 t2).
   Proof.
     ginit. gcofix CIH.
     intros t1 t2 Ht12. punfold Ht12. red in Ht12.
@@ -441,48 +473,69 @@ Section RuttMrec.
       pclearbot. gfinal. eauto.
     - apply simpobs in Heqot1, Heqot2. rewrite Heqot1, Heqot2.
       repeat rewrite unfold_interp_mrec. cbn.
-      inv H.
-      + apply inj_pair2 in H1, H4. subst. gstep. constructor.
+      dependent destruction H.
+      + remember (FIso_aux2 D1 EE1) as FI1.
+        remember (FIso_aux2 D2 EE2) as FI2.
+        set (H1 := FIso_aux2_proj1 _ _ _ HeqFI1). 
+        destruct FI1; simpl in *.
+        set (H2 := FIso_aux2_proj1 _ _ _ HeqFI2). 
+        destruct FI2; simpl in *.
+        gstep. constructor.
         gfinal. left. eapply CIH.
         eapply rutt_bind; eauto.
-        intros. cbn in H. clear - H H0.
-        specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H)).
+        intros. cbn in H3. clear - H3 H0.
+        specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H3)).
         pclearbot. auto.
-      + apply inj_pair2 in H1, H4. subst. gstep. constructor.
-        auto. intros. repeat rewrite tau_euttge. gfinal. left. eapply CIH.
-        clear - H0 H. specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H)).
-        pclearbot. auto.
-    - (* PROBLEM: D1 can't be an error, though E1 may be *)
+      + (* unfold effect, resum, LSub. *)
+        gstep. red. constructor; eauto.
+        intros. 
+        gstep. constructor.
+        gfinal. left. eapply CIH.
+        specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H1)).
+        pclearbot. eauto.
+    - remember (FIso_aux2 D1 EE1) as FI1.
+      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI1).
+      destruct FI1; simpl in *.
+      assert (GRuttL.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
+      { destruct EE1; simpl. eauto. }
       apply simpobs in Heqot1.
       rewrite Heqot1. 
       rewrite unfold_interp_mrec at 1. 
       cbn.
-      gstep. red. destruct e1.
-
-      admit.
-
+      setoid_rewrite H1.
+      rewrite K1.
+      gstep. red.
       econstructor.
-      admit.
-
-(*
- rewrite Heqot1.  
- gfinal. left. eapply CIH.
-*)
-
+    - remember (FIso_aux2 D2 EE2) as FI2.
+      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI2).
+      destruct FI2; simpl in *.
+      assert (GRuttL.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
+      { destruct EE2; simpl. eauto. }
+      apply simpobs in Heqot2.
+      rewrite Heqot2. 
+      setoid_rewrite unfold_interp_mrec at 2. 
+      cbn.
+      setoid_rewrite H1.
+      rewrite K1.
+      gstep. red.
+      econstructor.      
     - apply simpobs in Heqot1. rewrite Heqot1.
       rewrite unfold_interp_mrec at 1. cbn.
       rewrite tau_euttge. auto.
     - apply simpobs in Heqot2. rewrite Heqot2.
       setoid_rewrite unfold_interp_mrec at 2.
       cbn. rewrite tau_euttge. auto.
-  Admitted.
-
+  Qed.
+  
   Lemma mrec_rutt (A B : Type) (d1 : D1 A) (d2 : D2 B) : 
     RPreInv A B d1 d2 ->
-    rutt RPre RPost (fun (a : A) (b : B) => RPostInv A B d1 a d2 b) 
-         ErrorEvs (mrec bodies1 d1) (mrec bodies2 d2).
+    rutt EE1 EE2 RPre RPost (fun (a : A) (b : B) => RPostInv A B d1 a d2 b) 
+         (mrec bodies1 d1) (mrec bodies2 d2).
   Proof.
     intros. apply interp_mrec_rutt. auto.
   Qed.
-
+ 
 End RuttMrec.
+
+
+
