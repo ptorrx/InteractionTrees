@@ -39,6 +39,7 @@ Local Open Scope monad_scope.
 
 (** Auxiliary ********************************************************)
 
+(** Type function isomorphism class *)
 Class FIso (E1 E2: Type -> Type) : Type := FI {
     mfun1: E1 -< E2 ;
     mfun2: E2 -< E1 ; 
@@ -134,22 +135,23 @@ econstructor;
   simpl; intros; auto; destruct x; auto. 
 Defined.
 
-(**********)
 
-Global Instance FIso_aux1 E1 E2 E3 :
+(** instances for mutual recursion *)
+
+Global Instance FIso_MR' E1 E2 E3 :
   FIso ((E1 +' void1) +' (E2 +' E3)) ((E1 +' E2) +' E3).
 assert (FIso ((E1 +' void1) +' (E2 +' E3)) (E1 +' (E2 +' E3))) as H.
 { eapply (FIsoSum (FIsoRev (FIsoIdL E1)) (FIsoId (E2 +' E3))). }
 eapply (FIsoTrans H (FIsoLAssoc E1 E2 E3)).
 Defined.
 
-Global Instance FIso_aux2 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
+Global Instance FIso_MR E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
   FIso (E1 +' E2) ((E1 +' E3) +' E4).
-eapply (FIsoTrans (FIsoSum (FIsoIdL E1) X) (FIso_aux1 E1 E3 E4)).
+eapply (FIsoTrans (FIsoSum (FIsoIdL E1) X) (FIso_MR' E1 E3 E4)).
 Defined.
 
-Lemma FIso_aux2_proj1' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
-  let Y:= FIso_aux2 E1 X in forall A (e: E1 A), 
+Lemma FIso_MR_proj1' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_MR E1 X in forall A (e: E1 A), 
       (mfun2 A (inl1 (inl1 e)) = inl1 e).
   simpl; intros.
   destruct X.
@@ -159,16 +161,16 @@ Lemma FIso_aux2_proj1' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
     ReSum_id, id_, Id_IFun; auto.
 Qed.
 
-Lemma FIso_aux2_proj1 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
-  Y = FIso_aux2 E1 X ->
+Lemma FIso_MR_proj1 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_MR E1 X ->
   forall A (e: E1 A), 
       (mfun2 A (inl1 (inl1 e)) = inl1 e).
   simpl; intros.
-  inv H; eapply FIso_aux2_proj1'. 
+  inv H; eapply FIso_MR_proj1'. 
 Qed.
 
-Lemma FIso_aux2_proj3' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
-  let Y:= FIso_aux2 E1 X in forall A (e: E3 A), 
+Lemma FIso_MR_proj3' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_MR E1 X in forall A (e: E3 A), 
       (mfun2 A (inl1 (inr1 e)) = inr1 (mfun1 A (inl1 e))).
   simpl; intros.
   destruct X.
@@ -178,15 +180,15 @@ Lemma FIso_aux2_proj3' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
     ReSum_id, id_, Id_IFun; auto.
 Qed.
 
-Lemma FIso_aux2_proj3 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
-  Y = FIso_aux2 E1 X -> forall A (e: E3 A), 
+Lemma FIso_MR_proj3 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_MR E1 X -> forall A (e: E3 A), 
       (mfun2 A (inl1 (inr1 e)) = inr1 (mfun1 A (inl1 e))).
   simpl; intros.
-  inv H; eapply FIso_aux2_proj3'. 
+  inv H; eapply FIso_MR_proj3'. 
 Qed.
 
-Lemma FIso_aux2_proj4' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
-  let Y:= FIso_aux2 E1 X in forall A (e: E4 A), 
+Lemma FIso_MR_proj4' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_MR E1 X in forall A (e: E4 A), 
       (mfun2 A (inr1 e) = inr1 (mfun1 A (inr1 e))).
   simpl; intros.
   destruct X.
@@ -196,14 +198,15 @@ Lemma FIso_aux2_proj4' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
     ReSum_id, id_, Id_IFun; auto.
 Qed.
 
-Lemma FIso_aux2_proj4 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
-  Y = FIso_aux2 E1 X -> forall A (e: E4 A), 
+Lemma FIso_MR_proj4 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_MR E1 X -> forall A (e: E4 A), 
       (mfun2 A (inr1 e) = inr1 (mfun1 A (inr1 e))).
   simpl; intros.
-  inv H; eapply FIso_aux2_proj4'. 
+  inv H; eapply FIso_MR_proj4'. 
 Qed.
   
-(*********)
+
+(** FIso projections *)
 
 Section ProjAux.
   Context {E: Type -> Type}.
@@ -224,6 +227,9 @@ Section ProjAux.
     end.
 
 End ProjAux.
+
+
+(** FIso notation *)
 
   Notation cutoff EE e := (@subevent _ _ (RSub EE) _ e).
   
@@ -248,6 +254,9 @@ End ProjAux.
   Notation WillCutoff EE t := 
     (exists T (e: _ T) k,
       @eutt _ _ _ eq t (Vis (cutoff EE e) k)).
+
+
+(** FIso lemmas *)
   
 Section ProjLemmas.
   Context {E: Type -> Type}.
@@ -346,11 +355,11 @@ Section RuttF.
       REv e1 e2 ->
       (forall (a : A) (b : B), RAns e1 a e2 b -> sim (k1 a) (k2 b)) ->
       ruttF sim (VisF e1 k1) (VisF e2 k2)
-  | EqErrL: forall A (e1 : Er1 A)
+  | EqCutL: forall A (e1 : Er1 A)
                    (k1: A -> itree E1 R1)
                    (ot2: itree' E2 R2),  
       ruttF sim (VisF (@subevent _ _ (RSub EE1) _ e1) k1) ot2            
-  | EqErrR: forall A (e2 : Er2 A)
+  | EqCutR: forall A (e2 : Er2 A)
                    (k2: A -> itree E2 R2)
                    (ot1: itree' E1 R1),  
       ruttF sim ot1 (VisF (@subevent _ _ (RSub EE2) _ e2) k2)             

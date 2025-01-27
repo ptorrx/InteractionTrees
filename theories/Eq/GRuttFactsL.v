@@ -24,6 +24,9 @@ From ITree Require Import
   Eq.GRuttL
   Props.Leaf.
 
+(* Morphisms related to [REv] and [RAns]. Both behave nicely up to quantified
+   relation equality. There are also symmetry results when flipped.
+*)
 
 Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
   forall A, E1 A = E2 A.
@@ -119,7 +122,7 @@ Lemma flip_flip_RAns {E1 E2}
 Proof. reflexivity. Qed.
 
 
-(* Extra construction lemmas *)
+(* Extra construction lemmas ******************************************)
 
 Lemma rutt_trigger {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
   (EE1 : FIso E1 (Ef1 +' Er1))
@@ -183,8 +186,8 @@ Proof.
       { erewrite <- eq_RAns_iff. apply H1. assumption. }
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
-    * apply EqErrL. 
-    * apply EqErrR.
+    * apply EqCutL. 
+    * apply EqCutR.
       
   - revert t1 t2 Hrutt; pcofix CIH; intros t1 t2 Hrutt.
     pstep. punfold Hrutt. red in Hrutt; red.
@@ -196,8 +199,8 @@ Proof.
       { erewrite eq_RAns_iff. apply H1. assumption. }
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
-    * apply EqErrL.
-    * apply EqErrR.  
+    * apply EqCutL.
+    * apply EqCutR.  
 Qed.
 
 #[global] Instance rutt_Proper_R2 {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
@@ -289,8 +292,8 @@ Proof.
             hnf in H0; hnf. pclearbot; right. apply (CIH (k1 v1)); auto.
             apply Hk1k1'.
           * dependent destruction Heqm1.
-            gstep. apply EqErrL; auto.
-          * gstep. apply EqErrR; auto.
+            gstep. apply EqCutL; auto.
+          * gstep. apply EqCutR; auto.
           * idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
         - idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
@@ -315,7 +318,7 @@ Proof.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
-      apply EqErrL; auto.
+      apply EqCutL; auto.
     + apply EqTauL. eapply IHHeutt; auto.
     
   - gstep; red. econstructor; auto.
@@ -447,8 +450,8 @@ Section RuttMrec.
               @rutt (D1 +' E1) (D2 +' E2)
                 R1 R2
                 (D1 +' Ef1) (D2 +' Ef2) Er1 Er2
-                (FIso_aux2 D1 EE1)
-                (FIso_aux2 D2 EE2)               
+                (FIso_MR D1 EE1)
+                (FIso_MR D2 EE2)               
                 (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                 (fun (v1 : R1) (v2 : R2) =>
                    RPostInv R1 R2 d1 v1 d2 v2)
@@ -456,7 +459,7 @@ Section RuttMrec.
 
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
-      rutt (FIso_aux2 D1 EE1) (FIso_aux2 D2 EE2)
+      rutt (FIso_MR D1 EE1) (FIso_MR D2 EE2)
         (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                RR t1 t2 -> 
       rutt EE1 EE2 RPre RPost
@@ -474,11 +477,11 @@ Section RuttMrec.
     - apply simpobs in Heqot1, Heqot2. rewrite Heqot1, Heqot2.
       repeat rewrite unfold_interp_mrec. cbn.
       dependent destruction H.
-      + remember (FIso_aux2 D1 EE1) as FI1.
-        remember (FIso_aux2 D2 EE2) as FI2.
-        set (H1 := FIso_aux2_proj1 _ _ _ HeqFI1). 
+      + remember (FIso_MR D1 EE1) as FI1.
+        remember (FIso_MR D2 EE2) as FI2.
+        set (H1 := FIso_MR_proj1 _ _ _ HeqFI1). 
         destruct FI1; simpl in *.
-        set (H2 := FIso_aux2_proj1 _ _ _ HeqFI2). 
+        set (H2 := FIso_MR_proj1 _ _ _ HeqFI2). 
         destruct FI2; simpl in *.
         gstep. constructor.
         gfinal. left. eapply CIH.
@@ -493,8 +496,8 @@ Section RuttMrec.
         gfinal. left. eapply CIH.
         specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H1)).
         pclearbot. eauto.
-    - remember (FIso_aux2 D1 EE1) as FI1.
-      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI1).
+    - remember (FIso_MR D1 EE1) as FI1.
+      set (H1 := FIso_MR_proj4 _ _ _ HeqFI1).
       destruct FI1; simpl in *.
       assert (GRuttL.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
       { destruct EE1; simpl. eauto. }
@@ -506,8 +509,8 @@ Section RuttMrec.
       rewrite K1.
       gstep. red.
       econstructor.
-    - remember (FIso_aux2 D2 EE2) as FI2.
-      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI2).
+    - remember (FIso_MR D2 EE2) as FI2.
+      set (H1 := FIso_MR_proj4 _ _ _ HeqFI2).
       destruct FI2; simpl in *.
       assert (GRuttL.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
       { destruct EE2; simpl. eauto. }

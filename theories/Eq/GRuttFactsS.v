@@ -28,107 +28,6 @@ From ITree Require Import
    relation equality. There are also symmetry results when flipped.
 *)
 
-(*
-Locate "-<".
-Print IFun.
-Print ReSum.
-
-Lemma xx A B : A -< B.
-  unfold ReSum, IFun.
-Abort.
-
-Lemma ww A B (H K: A -< B) : Prop.
-Abort.
-
-Lemma yy M: Eq1 M.
-  unfold Eq1.
-Abort.
-
-Lemma zz F (G: Eq1 F) (A: Type) : @eq1 F = @eq1 F.
-  unfold eq1.
-  unfold Eq1 in *.
-  clear G.
-  eapply functional_extensionality.
-  intro.
-Abort.
-
-Print Eq2.
- *)
-
-(*
-Definition eq_subsum {E1 E2} (X Y: E1 -< E2) : Prop := 
-  X = Y. 
-
-Global Instance subsum_lequiv_Proper :
-  Proper (eq_tfun ==> eq_tfun ==> eq_subsum) (fun X Y => X -< Y).
-Proof. 
-
-Definition equiv_subsum {E1 E2 E3 E4} (X: E1 -< E2) (Y: E3 -< E4) : Prop := 
-  ((X -> Y) * (Y -> X))%type. 
-*)
-
-(*Definition eq_REv' {E1 E2 Ef1 Ef2 Er1 Er2}
-  (EE1 : FIso E1 (Ef1 +' Er1))
-  (EE2 : FIso E2 (Ef2 +' Er2))
-  (REv1 REv2 : forall A B, Ef1 A -> Ef2 B -> Prop) : Prop := 
-  forall A B, eq_rel (REv1 A B) (REv2 A B).
-*)
-
-(*
-Lemma rutt_flip_impl {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
-  (EE1 : FIso E1 (Ef1 +' Er1))
-  (EE2 : FIso E2 (Ef2 +' Er2))
-  (REv : forall A B, Ef1 A -> Ef2 B -> Prop)
-  (RAns : forall A B, Ef1 A -> A -> Ef2 B -> B -> Prop )
-  {RR : R1 -> R2 -> Prop} 
-  (t1: itree E1 R1) (t2: itree E2 R2) :
-  rutt EE1 EE2 REv RAns RR t1 t2 ->
-    rutt EE2 EE1 (flip_REv REv) (flip_RAns RAns) (flip RR) t2 t1.
-Proof.
-  revert t1 t2; pcofix CIH; intros t1 t2 Hrutt;
-  punfold Hrutt; red in Hrutt; pstep; red.
-  induction Hrutt; try now constructor.
-  * apply EqTau. right. apply CIH. now pclearbot.
-  * apply EqVis. auto. intros b a HAns. cbn in HAns. right.
-      specialize (H0 a b HAns). apply CIH. now pclearbot.  
-Qed.
-*)  
-
-(*
-Definition eq_ErrorEvs (ErrorEvs1 ErrorEvs2 : (Type -> Type) -> bool) : Prop :=
-  forall E, ErrorEvs1 E = ErrorEvs2 E.         
-
-Definition loc_const_ErrorEvs (E1 E2: Type -> Type)
-  (ErrorEvs1 ErrorEvs2 : (Type -> Type) -> bool) : Prop :=
-  ErrorEvs1 E1 = false /\ ErrorEvs2 E2 = false
-  /\ eq_ErrorEvs ErrorEvs1 ErrorEvs2.         
-*)
-
-(*
-Definition lequiv_tfun (E1 E2: Type -> Type) : Type :=
-  forall A, ((E1 A -> E2 A) * (E2 A -> E1 A))%type.
-
-Definition lequiv {A B} : Type :=
-  ((A -> B) * (B -> A))%type.
-*)
-
-(*
-Definition eq_FIso {E1 E2: Type -> Type} (X Y: FIso E1 E2) : Prop := 
-  X = Y.
-
-Global Instance FIso_Proper (X: forall E1 E2: Type -> Type, FIso E1 E2) :
-  Proper (eq_tfun ==> eq_tfun ==> eq_FIso) X.
-Proof.
-  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
-  intros x y H x0 y0 H0.
-  eapply functional_extensionality in H; auto.
-  eapply functional_extensionality in H0; auto.
-  inv H; auto.
-Qed.  
-*)
-
-(**************************************************)
-
 Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
   forall A, E1 A = E2 A.
 
@@ -287,8 +186,8 @@ Proof.
       { erewrite <- eq_RAns_iff. apply H1. assumption. }
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
-    * apply EqErrL. 
-    * apply EqErrR.
+    * apply EqCutL. 
+    * apply EqCutR.
       
   - revert t1 t2 Hrutt; pcofix CIH; intros t1 t2 Hrutt.
     pstep. punfold Hrutt. red in Hrutt; red.
@@ -300,8 +199,8 @@ Proof.
       { erewrite eq_RAns_iff. apply H1. assumption. }
       intros. specialize (H0 a b H2). red. right. apply CIH.
       red in H0. now pclearbot.
-    * apply EqErrL.
-    * apply EqErrR.  
+    * apply EqCutL.
+    * apply EqCutR.  
 Qed.
 
 #[global] Instance rutt_Proper_R2 {E1 E2 R1 R2 Ef1 Ef2 Er1 Er2}
@@ -393,8 +292,8 @@ Proof.
             hnf in H0; hnf. pclearbot; right. apply (CIH (k1 v1)); auto.
             apply Hk1k1'.
           * dependent destruction Heqm1.
-            gstep. apply EqErrL; auto.
-          * gstep. apply EqErrR; auto.
+            gstep. apply EqCutL; auto.
+          * gstep. apply EqCutR; auto.
           * idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
         - idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
@@ -411,15 +310,14 @@ Proof.
     + dependent destruction Heqm1.
       apply EqVis; auto. intros a b HAns'. specialize (HAns a b HAns').      
       hnf in HAns; hnf. pclearbot; right. apply (CIH (k1 a)); auto. apply REL.
-    + (* eapply EqTauL. eapply IHHeutt. auto. *)
-      now apply EqTauL, IHHeutt.      
+    + now apply EqTauL, IHHeutt.      
   - rewrite itree_eta. gfinal; right; pstep.
      
     remember (VisF (cutoff EE1 e1) k1) as m1; revert Heqm1.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
-      apply EqErrL; auto.
+      apply EqCutL; auto.
     + apply EqTauL. eapply IHHeutt; auto.
     
   - gstep; red. econstructor; auto.
@@ -546,54 +444,14 @@ Section RuttMrec.
 
   Context (bodies1 : D1 ~> itree (D1 +' E1))
           (bodies2 : D2 ~> itree (D2 +' E2)).
-  
-                (*
-                (Df1 +' Ef1) (Df2 +' Ef2)
-                (Dr1 +' Er1) (Dr2 +' Er2)
-                *)  
-
-                (*
-                (D1 +' Ef1) (D2 +' Ef2)
-                (void1 +' Er1) (void1 +' Er2)
-                *)  
-
-                (* (X: FIso D1 (D1 +' void1)) (Y: FIso E1 (Ef1 +' Er1)) 
-                   == FIsoSum ==> 
-                   FIso (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
-                   == ?? ==>
-                   FIso ((D1 +' void1) +' (Ef1 +' Er1))
-                        ((D1 +' Ef1) +' Er1)  
-                   == trans ==>
-                   FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
-                 *) 
-(* 
-
-    FIsoIdL ===================
- 
-           >> D1 (D1 +' void1)         (Hyp) >> E1 (Ef1 +' Er1) 
-
-  FIsoSum ------------------------------------------------------ 
-           (1) >> (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
-             
-
-      ??? =======================================
-           (2) >> ((D1 +' void1) +' (Ef1 +' Er1))
-                  ((D1 +' Ef1) +' Er1)  
-
-
-                     (1)      (2)                     
-     trans --------------------------------------- 
-            FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
-                 
-*) 
- 
+   
   Context (Hbodies : forall R1 R2 (d1 : D1 R1) (d2 : D2 R2), 
               RPreInv R1 R2 d1 d2 -> 
               @rutt (D1 +' E1) (D2 +' E2)
                 R1 R2
                 (D1 +' Ef1) (D2 +' Ef2) Er1 Er2
-                (FIso_aux2 D1 EE1)
-                (FIso_aux2 D2 EE2)               
+                (FIso_MR D1 EE1)
+                (FIso_MR D2 EE2)               
                 (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                 (fun (v1 : R1) (v2 : R2) =>
                    RPostInv R1 R2 d1 v1 d2 v2)
@@ -601,7 +459,7 @@ Section RuttMrec.
 
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
-      rutt (FIso_aux2 D1 EE1) (FIso_aux2 D2 EE2)
+      rutt (FIso_MR D1 EE1) (FIso_MR D2 EE2)
         (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                RR t1 t2 -> 
       rutt EE1 EE2 RPre RPost
@@ -620,11 +478,11 @@ Section RuttMrec.
       repeat rewrite unfold_interp_mrec. cbn.
       dependent destruction H.
       + unfold effect, resum, LSub.
-        remember (FIso_aux2 D1 EE1) as FI1.
-        remember (FIso_aux2 D2 EE2) as FI2.
-        set (H1 := FIso_aux2_proj1 _ _ _ HeqFI1). 
+        remember (FIso_MR D1 EE1) as FI1.
+        remember (FIso_MR D2 EE2) as FI2.
+        set (H1 := FIso_MR_proj1 _ _ _ HeqFI1). 
         destruct FI1; simpl in *.
-        set (H2 := FIso_aux2_proj1 _ _ _ HeqFI2). 
+        set (H2 := FIso_MR_proj1 _ _ _ HeqFI2). 
         destruct FI2; simpl in *.
         rewrite H1.
         rewrite H2.
@@ -635,11 +493,11 @@ Section RuttMrec.
         specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H3)).
         pclearbot. auto.
       + unfold effect, resum, LSub.
-        remember (FIso_aux2 D1 EE1) as FI1.
-        remember (FIso_aux2 D2 EE2) as FI2.
-        set (H1 := FIso_aux2_proj3 _ _ _ HeqFI1). 
+        remember (FIso_MR D1 EE1) as FI1.
+        remember (FIso_MR D2 EE2) as FI2.
+        set (H1 := FIso_MR_proj3 _ _ _ HeqFI1). 
         destruct FI1; simpl in *.
-        set (H2 := FIso_aux2_proj3 _ _ _ HeqFI2). 
+        set (H2 := FIso_MR_proj3 _ _ _ HeqFI2). 
         destruct FI2; simpl in *.
         rewrite H1.
         rewrite H2.
@@ -655,8 +513,8 @@ Section RuttMrec.
         repeat rewrite tau_euttge. gfinal. left. eapply CIH.
         clear - H3 H0. specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H3)).
         pclearbot. auto.          
-    - remember (FIso_aux2 D1 EE1) as FI1.
-      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI1).
+    - remember (FIso_MR D1 EE1) as FI1.
+      set (H1 := FIso_MR_proj4 _ _ _ HeqFI1).
       destruct FI1; simpl in *.
       assert (GRuttS.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
       { destruct EE1; simpl. eauto. }
@@ -668,8 +526,8 @@ Section RuttMrec.
       rewrite K1.
       gstep. red.
       econstructor.
-    - remember (FIso_aux2 D2 EE2) as FI2.
-      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI2).
+    - remember (FIso_MR D2 EE2) as FI2.
+      set (H1 := FIso_MR_proj4 _ _ _ HeqFI2).
       destruct FI2; simpl in *.
       assert (GRuttS.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
       { destruct EE2; simpl. eauto. }
@@ -749,5 +607,46 @@ Lemma rutt_iter :
 Qed.  
 
 End RuttIter.
+
+
+                (*
+                (Df1 +' Ef1) (Df2 +' Ef2)
+                (Dr1 +' Er1) (Dr2 +' Er2)
+                *)  
+
+                (*
+                (D1 +' Ef1) (D2 +' Ef2)
+                (void1 +' Er1) (void1 +' Er2)
+                *)  
+
+                (* (X: FIso D1 (D1 +' void1)) (Y: FIso E1 (Ef1 +' Er1)) 
+                   == FIsoSum ==> 
+                   FIso (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
+                   == ?? ==>
+                   FIso ((D1 +' void1) +' (Ef1 +' Er1))
+                        ((D1 +' Ef1) +' Er1)  
+                   == trans ==>
+                   FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
+                 *) 
+(* 
+
+    FIsoIdL ===================
+ 
+           >> D1 (D1 +' void1)         (Hyp) >> E1 (Ef1 +' Er1) 
+
+  FIsoSum ------------------------------------------------------ 
+           (1) >> (D1 +' E1) ((D1 +' void1) +' (Ef1 +' Er1))
+             
+
+      ??? =======================================
+           (2) >> ((D1 +' void1) +' (Ef1 +' Er1))
+                  ((D1 +' Ef1) +' Er1)  
+
+
+                     (1)      (2)                     
+     trans --------------------------------------- 
+            FIso (D1 +' E1) ((D1 +' Ef1) +' Er1) 
+                 
+*) 
 
 
