@@ -436,12 +436,12 @@ Section RuttMrec.
   Context (EE1 : FIso E1 (Ef1 +' Er1))
           (EE2 : FIso E2 (Ef2 +' Er2)).
             
+  Context (RPre : prerel E1 E2) (RPreInv : prerel D1 D2)
+          (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
+
   Context (bodies1 : D1 ~> itree (D1 +' E1))
           (bodies2 : D2 ~> itree (D2 +' E2)).
   
-  Context (RPre : prerel E1 E2) (RPreInv : prerel D1 D2)
-          (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
- 
   Context (Hbodies : forall R1 R2 (d1 : D1 R1) (d2 : D2 R2), 
               RPreInv R1 R2 d1 d2 -> 
               @rutt (D1 +' E1) (D2 +' E2)
@@ -538,4 +538,53 @@ Section RuttMrec.
 End RuttMrec.
 
 
+Section RuttIter.
+  Context {E1 E2 : Type -> Type}.
+  Context {Ef1 Ef2: Type -> Type}.
+  Context {Er1 Er2: Type -> Type}.
+
+  Context (EE1 : FIso E1 (Ef1 +' Er1))
+          (EE2 : FIso E2 (Ef2 +' Er2)).
+
+  Context (RPreE : forall A B : Type, E1 A -> E2 B -> Prop)
+          (RPostE : forall A B : Type,
+                         E1 A -> A -> E2 B -> B -> Prop).
+
+  Context {I1 I2 R1 R2: Type}.
+  
+  Context (RI : I1 -> I2 -> Prop)
+          (RR : R1 -> R2 -> Prop).
+
+  Context (body1 : I1 -> itree E1 (I1 + R1))
+          (body2 : I2 -> itree E2 (I2 + R2)).
+
+Lemma rutt_iter :
+  (forall j1 j2, RI j1 j2 ->
+                 rutt EE1 EE2 RPreE RPostE
+                   (sum_rel RI RR) (body1 j1) (body2 j2)) ->
+  forall (i1 : I1) (i2 : I2) (RI_i : RI i1 i2),
+    @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 RPreE RPostE RR
+      (ITree.iter body1 i1) (ITree.iter body2 i2). 
+  ginit. gcofix CIH.
+  intros.
+  rewrite !unfold_iter.
+  eapply gpaco2_uclo; [|eapply rutt_clo_bind|]; eauto with paco.
+  econstructor; eauto. intros; subst. gfinal. right.
+  destruct u1; try discriminate.
+  destruct u2; try discriminate.
+  pstep; red.
+  econstructor.
+  right.
+  eapply CIH; eauto.
+  inversion H; subst; auto.
+  pstep; red.
+  inversion H; subst.
+  destruct u2; try discriminate.
+  inversion H; subst.
+  pstep; red.
+  econstructor.
+  inversion H; subst; auto.
+Qed.  
+
+End RuttIter.
 
