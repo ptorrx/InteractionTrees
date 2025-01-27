@@ -599,7 +599,6 @@ Section RuttMrec.
                    RPostInv R1 R2 d1 v1 d2 v2)
                      (bodies1 R1 d1) (bodies2 R2 d2) ).
 
-
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
       rutt (FIso_aux2 D1 EE1) (FIso_aux2 D2 EE2)
@@ -623,73 +622,79 @@ Section RuttMrec.
       + unfold effect, resum, LSub.
         remember (FIso_aux2 D1 EE1) as FI1.
         remember (FIso_aux2 D2 EE2) as FI2.
-        destruct FI1; simpl.
-        destruct FI2; simpl.
-        assert (mfun2 A (inl1 (inl1 e1)) = inl1 e1) as H1.
-        { admit. }
+        set (H1 := FIso_aux2_proj1 _ _ _ HeqFI1). 
+        destruct FI1; simpl in *.
+        set (H2 := FIso_aux2_proj1 _ _ _ HeqFI2). 
+        destruct FI2; simpl in *.
         rewrite H1.
-        assert (mfun3 B (inl1 (inl1 d1)) = inl1 d1) as H2.
-        { admit. }
-        rewrite H2.        
+        rewrite H2.
         gstep. constructor.
         gfinal. left. eapply CIH.
         eapply rutt_bind; eauto.
         intros. cbn in H3. clear - H3 H0.
         specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H3)).
         pclearbot. auto.
-      + (* apply inj_pair2 in H1, H4. *)
-        unfold effect, resum, LSub.
+      + unfold effect, resum, LSub.
         remember (FIso_aux2 D1 EE1) as FI1.
         remember (FIso_aux2 D2 EE2) as FI2.
-        destruct FI1; simpl.
-        destruct FI2; simpl.
-        destruct EE1.
-        assert (mfun2 A (inl1 (inr1 e2)) = inr1 (mfun5 A (inl1 e2))) as H1.
-        { admit. }
+        set (H1 := FIso_aux2_proj3 _ _ _ HeqFI1). 
+        destruct FI1; simpl in *.
+        set (H2 := FIso_aux2_proj3 _ _ _ HeqFI2). 
+        destruct FI2; simpl in *.
         rewrite H1.
-        destruct EE2.
-        assert (mfun3 B (inl1 (inr1 d2)) = inr1 (mfun7 B (inl1 d2))) as H2.
-        { admit. }
         rewrite H2.
+        assert (GRuttS.mfun1 A (inl1 e2) = effect EE1 e2) as K1.
+        { destruct EE1; simpl. eauto. }
+        assert (GRuttS.mfun1 B (inl1 d2) = effect EE2 d2) as K2.
+        { destruct EE2; simpl. eauto. }
+        rewrite K1.
+        rewrite K2.
         gstep. red. simpl.
-
-        (****) 
-
-        constructor.
-        auto. intros. repeat rewrite tau_euttge. gfinal. left. eapply CIH.
-        clear - H0 H. specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H)).
-        pclearbot. auto.
-    - (* PROBLEM: D1 can't be an error, though E1 may be *)
+        constructor; eauto.
+        intros. 
+        repeat rewrite tau_euttge. gfinal. left. eapply CIH.
+        clear - H3 H0. specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H3)).
+        pclearbot. auto.          
+    - remember (FIso_aux2 D1 EE1) as FI1.
+      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI1).
+      destruct FI1; simpl in *.
+      assert (GRuttS.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
+      { destruct EE1; simpl. eauto. }
       apply simpobs in Heqot1.
       rewrite Heqot1. 
       rewrite unfold_interp_mrec at 1. 
       cbn.
-      gstep. red. destruct e1.
-
-      admit.
-
+      setoid_rewrite H1.
+      rewrite K1.
+      gstep. red.
       econstructor.
-      admit.
-
-(*
- rewrite Heqot1.  
- gfinal. left. eapply CIH.
-*)
-
+    - remember (FIso_aux2 D2 EE2) as FI2.
+      set (H1 := FIso_aux2_proj4 _ _ _ HeqFI2).
+      destruct FI2; simpl in *.
+      assert (GRuttS.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
+      { destruct EE2; simpl. eauto. }
+      apply simpobs in Heqot2.
+      rewrite Heqot2. 
+      setoid_rewrite unfold_interp_mrec at 2. 
+      cbn.
+      setoid_rewrite H1.
+      rewrite K1.
+      gstep. red.
+      econstructor.      
     - apply simpobs in Heqot1. rewrite Heqot1.
       rewrite unfold_interp_mrec at 1. cbn.
       rewrite tau_euttge. auto.
     - apply simpobs in Heqot2. rewrite Heqot2.
       setoid_rewrite unfold_interp_mrec at 2.
       cbn. rewrite tau_euttge. auto.
-  Admitted.
-
+  Qed.
+  
   Lemma mrec_rutt (A B : Type) (d1 : D1 A) (d2 : D2 B) : 
     RPreInv A B d1 d2 ->
-    rutt RPre RPost (fun (a : A) (b : B) => RPostInv A B d1 a d2 b) 
-         ErrorEvs (mrec bodies1 d1) (mrec bodies2 d2).
+    rutt EE1 EE2 RPre RPost (fun (a : A) (b : B) => RPostInv A B d1 a d2 b) 
+         (mrec bodies1 d1) (mrec bodies2 d2).
   Proof.
     intros. apply interp_mrec_rutt. auto.
   Qed.
-
+ 
 End RuttMrec.

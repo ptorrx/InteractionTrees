@@ -147,7 +147,62 @@ Global Instance FIso_aux2 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) :
   FIso (E1 +' E2) ((E1 +' E3) +' E4).
 eapply (FIsoTrans (FIsoSum (FIsoIdL E1) X) (FIso_aux1 E1 E3 E4)).
 Defined.
+
+Lemma FIso_aux2_proj1' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_aux2 E1 X in forall A (e: E1 A), 
+      (mfun2 A (inl1 (inl1 e)) = inl1 e).
+  simpl; intros.
+  destruct X.
+  unfold mfun2; simpl.
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun; auto.
+Qed.
+
+Lemma FIso_aux2_proj1 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_aux2 E1 X ->
+  forall A (e: E1 A), 
+      (mfun2 A (inl1 (inl1 e)) = inl1 e).
+  simpl; intros.
+  inv H; eapply FIso_aux2_proj1'. 
+Qed.
+
+Lemma FIso_aux2_proj4' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_aux2 E1 X in forall A (e: E4 A), 
+      (mfun2 A (inr1 e) = inr1 (mfun1 A (inr1 e))).
+  simpl; intros.
+  destruct X.
+  unfold mfun2, mfun1; simpl.
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun; auto.
+Qed.
+
+Lemma FIso_aux2_proj4 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_aux2 E1 X -> forall A (e: E4 A), 
+      (mfun2 A (inr1 e) = inr1 (mfun1 A (inr1 e))).
+  simpl; intros.
+  inv H; eapply FIso_aux2_proj4'. 
+Qed.
   
+Lemma FIso_aux2_proj3' E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) : 
+  let Y:= FIso_aux2 E1 X in forall A (e: E3 A), 
+      (mfun2 A (inl1 (inr1 e)) = inr1 (mfun1 A (inl1 e))).
+  simpl; intros.
+  destruct X.
+  unfold mfun2, mfun1; simpl.
+  unfold ReSum_sum, case_, Case_sum1, case_sum1, resum, ReSum_inl,
+    ReSum_inr, cat, Cat_IFun, inl_, inr_, Inl_sum1, Inr_sum1, resum,
+    ReSum_id, id_, Id_IFun; auto.
+Qed.
+
+Lemma FIso_aux2_proj3 E1 {E2 E3 E4} (X: FIso E2 (E3 +' E4)) Y : 
+  Y = FIso_aux2 E1 X -> forall A (e: E3 A), 
+      (mfun2 A (inl1 (inr1 e)) = inr1 (mfun1 A (inl1 e))).
+  simpl; intros.
+  inv H; eapply FIso_aux2_proj3'. 
+Qed.
+
 (*********)
 
 Section ProjAux.
