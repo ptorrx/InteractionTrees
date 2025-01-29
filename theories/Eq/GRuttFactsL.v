@@ -21,6 +21,7 @@ From ITree Require Import
   ITreeFacts
   Core.Subevent
   Basics.HeterogeneousRelations
+  Eq.GRuttAux
   Eq.GRuttL
   Props.Leaf.
 
@@ -499,7 +500,7 @@ Section RuttMrec.
     - remember (FIso_MR D1 EE1) as FI1.
       set (H1 := FIso_MR_proj4 _ _ _ HeqFI1).
       destruct FI1; simpl in *.
-      assert (GRuttL.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
+      assert (GRuttAux.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
       { destruct EE1; simpl. eauto. }
       apply simpobs in Heqot1.
       rewrite Heqot1. 
@@ -512,7 +513,7 @@ Section RuttMrec.
     - remember (FIso_MR D2 EE2) as FI2.
       set (H1 := FIso_MR_proj4 _ _ _ HeqFI2).
       destruct FI2; simpl in *.
-      assert (GRuttL.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
+      assert (GRuttAux.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
       { destruct EE2; simpl. eauto. }
       apply simpobs in Heqot2.
       rewrite Heqot2. 
