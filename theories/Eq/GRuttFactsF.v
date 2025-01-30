@@ -422,13 +422,18 @@ Proof.
   econstructor; eauto. intros; subst. gfinal. right. apply H0. eauto.
 Qed.
 
+Definition EE_MR {E: Type -> Type}
+  (EE: forall X, E X -> bool) (D: Type -> Type) :
+  forall X, (D +' E) X -> bool :=
+  fun X m => match m with
+             | inl1 _ => true
+             | inr1 e => EE X e end.             
+
 Section RuttMrec.
   Context {D1 D2 E1 E2 : Type -> Type}.
-  Context {Ef1 Ef2: Type -> Type}.
-  Context {Er1 Er2: Type -> Type}.
 
-  Context (EE1 : FIso E1 (Ef1 +' Er1))
-          (EE2 : FIso E2 (Ef2 +' Er2)).
+  Context (EE1: forall X, E1 X -> bool).
+  Context (EE2: forall X, E2 X -> bool).
             
   Context (RPre : prerel E1 E2) (RPreInv : prerel D1 D2)
           (RPost : postrel E1 E2) (RPostInv : postrel D1 D2).
@@ -440,9 +445,8 @@ Section RuttMrec.
               RPreInv R1 R2 d1 d2 -> 
               @rutt (D1 +' E1) (D2 +' E2)
                 R1 R2
-                (D1 +' Ef1) (D2 +' Ef2) Er1 Er2
-                (FIso_MR D1 EE1)
-                (FIso_MR D2 EE2)               
+                (EE_MR EE1 D1)
+                (EE_MR EE2 D2)               
                 (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                 (fun (v1 : R1) (v2 : R2) =>
                    RPostInv R1 R2 d1 v1 d2 v2)
@@ -450,7 +454,7 @@ Section RuttMrec.
 
   Lemma interp_mrec_rutt (R1 R2 : Type) (RR : R1 -> R2 -> Prop) :
     forall (t1 : itree (D1 +' E1) R1) (t2 : itree (D2 +' E2) R2),
-      rutt (FIso_MR D1 EE1) (FIso_MR D2 EE2)
+      rutt (EE_MR EE1 D1) (EE_MR EE2 D2)
         (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
                RR t1 t2 -> 
       rutt EE1 EE2 RPre RPost
@@ -468,51 +472,33 @@ Section RuttMrec.
     - apply simpobs in Heqot1, Heqot2. rewrite Heqot1, Heqot2.
       repeat rewrite unfold_interp_mrec. cbn.
       dependent destruction H.
-      + remember (FIso_MR D1 EE1) as FI1.
-        remember (FIso_MR D2 EE2) as FI2.
-        set (H1 := FIso_MR_proj1 _ _ _ HeqFI1). 
-        destruct FI1; simpl in *.
-        set (H2 := FIso_MR_proj1 _ _ _ HeqFI2). 
-        destruct FI2; simpl in *.
-        gstep. constructor.
-        gfinal. left. eapply CIH.
+      destruct H1.
+      + gstep. constructor.
+        gfinal. left. eapply CIH; eauto.
         eapply rutt_bind; eauto.
-        intros. cbn in H3. clear - H3 H0.
-        specialize (H0 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H3)).
+        intros. cbn in H1. clear - H1 H2.
+        specialize (H2 r1 r2 (sum_postrel_inl _ _ _ _ _ _ _ _ H1)).
         pclearbot. auto.
-      + (* unfold effect, resum, LSub. *)
-        gstep. red. constructor; eauto.
+      + gstep. red. constructor; eauto.
         intros. 
         gstep. constructor.
         gfinal. left. eapply CIH.
-        specialize (H0 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H1)).
+        specialize (H2 a b (sum_postrel_inr _ _ _ _ _ _ _ _ H1)).
         pclearbot. eauto.
-    - remember (FIso_MR D1 EE1) as FI1.
-      set (H1 := FIso_MR_proj4 _ _ _ HeqFI1).
-      destruct FI1; simpl in *.
-      assert (GRuttAux.mfun1 A (inr1 e1) = cutoff EE1 e1) as K1.
-      { destruct EE1; simpl. eauto. }
-      apply simpobs in Heqot1.
+    - apply simpobs in Heqot1.
       rewrite Heqot1. 
       rewrite unfold_interp_mrec at 1. 
       cbn.
-      setoid_rewrite H1.
-      rewrite K1.
+      destruct e1; simpl in H; try congruence.
       gstep. red.
-      econstructor.
-    - remember (FIso_MR D2 EE2) as FI2.
-      set (H1 := FIso_MR_proj4 _ _ _ HeqFI2).
-      destruct FI2; simpl in *.
-      assert (GRuttAux.mfun1 A (inr1 e2) = cutoff EE2 e2) as K1.
-      { destruct EE2; simpl. eauto. }
-      apply simpobs in Heqot2.
+      econstructor; auto.        
+    - apply simpobs in Heqot2.
       rewrite Heqot2. 
       setoid_rewrite unfold_interp_mrec at 2. 
       cbn.
-      setoid_rewrite H1.
-      rewrite K1.
+      destruct e2; simpl in H; try congruence.
       gstep. red.
-      econstructor.      
+      econstructor; auto.        
     - apply simpobs in Heqot1. rewrite Heqot1.
       rewrite unfold_interp_mrec at 1. cbn.
       rewrite tau_euttge. auto.
@@ -534,11 +520,9 @@ End RuttMrec.
 
 Section RuttIter.
   Context {E1 E2 : Type -> Type}.
-  Context {Ef1 Ef2: Type -> Type}.
-  Context {Er1 Er2: Type -> Type}.
 
-  Context (EE1 : FIso E1 (Ef1 +' Er1))
-          (EE2 : FIso E2 (Ef2 +' Er2)).
+  Context (EE1: forall X, E1 X -> bool).
+  Context (EE2: forall X, E2 X -> bool).
 
   Context (RPreE : forall A B : Type, E1 A -> E2 B -> Prop)
           (RPostE : forall A B : Type,
@@ -557,7 +541,7 @@ Lemma rutt_iter :
                  rutt EE1 EE2 RPreE RPostE
                    (sum_rel RI RR) (body1 j1) (body2 j2)) ->
   forall (i1 : I1) (i2 : I2) (RI_i : RI i1 i2),
-    @rutt E1 E2 R1 R2 Ef1 Ef2 Er1 Er2 EE1 EE2 RPreE RPostE RR
+    @rutt E1 E2 R1 R2 EE1 EE2 RPreE RPostE RR
       (ITree.iter body1 i1) (ITree.iter body2 i2). 
   ginit. gcofix CIH.
   intros.
