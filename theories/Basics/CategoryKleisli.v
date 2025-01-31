@@ -28,10 +28,13 @@ From ITree Require Import
      Basics.Monad.
 (* end hide *)
 
+(* Set Universe Polymorphism. *)
+
 Implicit Types m : Type -> Type.
 Implicit Types a b c : Type.
 
 Definition Kleisli m a b : Type := a -> m b.
+
 
 (* SAZ: We need to show how these are intended to be used. *)
 (** A trick to allow rewriting in pointful contexts. *)

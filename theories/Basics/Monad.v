@@ -12,6 +12,8 @@ From ITree Require Import
      Basics.CategoryOps.
 (* end hide *)
 
+Set Universe Polymorphism.
+
 Set Primitive Projections.
 
 (* Canonical equivalence relation for a unary type family. *)

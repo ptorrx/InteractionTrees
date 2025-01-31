@@ -21,6 +21,7 @@ Import CatNotations.
 Local Open Scope cat_scope.
 Local Open Scope monad_scope.
 
+(* Set Universe Polymorphism. *)
 
 Section BasicFacts.
 
