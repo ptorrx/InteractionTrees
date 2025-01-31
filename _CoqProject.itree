@@ -39,6 +39,8 @@ theories/Eq/EqAxiom.v
 theories/Eq/EuttExtras.v
 theories/Eq/Rutt.v
 theories/Eq/RuttFacts.v
+theories/Eq/XRutt.v
+theories/Eq/XRuttFacts.v
 
 theories/Props/Leaf.v
 theories/Props/Finite.v
