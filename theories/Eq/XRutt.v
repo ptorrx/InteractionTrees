@@ -332,18 +332,38 @@ Proof.
   intros; apply rutt_inv_Tau_r, rutt_inv_Tau_l; assumption.
 Qed.
 
+Lemma rutt_CutL {T1} (e1: E1 T1) (k1: T1 -> itree E1 R1)
+  (t: itree E2 R2) :
+  EE1 T1 e1 = false ->
+  @rutt E1 E2 R1 R2 EE1 EE2 REv RAns RR (Vis e1 k1) t.
+Proof.
+  intros; pstep; econstructor; auto.
+Qed.
+
+Lemma rutt_CutR {T2} (e2: E2 T2) (k2: T2 -> itree E2 R2)
+  (t: itree E1 R1) :
+  EE2 T2 e2 = false ->
+  @rutt E1 E2 R1 R2 EE1 EE2 REv RAns RR t (Vis e2 k2).
+Proof.
+  intros; pstep; econstructor; auto.
+Qed.
+
 Lemma rutt_Vis {T1 T2} (e1: E1 T1) (e2: E2 T2)
   (k1: T1 -> itree E1 R1) (k2: T2 -> itree E2 R2):
-  EE1 T1 e1 = true ->
-  EE2 T2 e2 = true ->
   REv _ _ e1 e2 ->
   (forall t1 t2, RAns _ _ e1 t1 e2 t2 ->
     @rutt E1 E2 R1 R2 EE1 EE2 REv RAns RR (k1 t1) (k2 t2)) ->
   @rutt E1 E2 R1 R2 EE1 EE2 REv RAns RR
     (Vis e1 k1) (Vis e2 k2).
 Proof.
-  intros H H0 He Hk. pstep; constructor; auto.
-  intros; left. apply Hk; auto.
+  remember (EE1 T1 e1) as ee1.
+  remember (EE2 T2 e2) as ee2.
+  destruct ee1; destruct ee2; intros He Hk.
+  { pstep; constructor; auto.
+    intros; left. apply Hk; auto. }
+  { eapply rutt_CutR; eauto. }
+  { eapply rutt_CutL; eauto. }
+  { eapply rutt_CutL; eauto. }
 Qed.
 
 Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:

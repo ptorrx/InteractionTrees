@@ -118,8 +118,6 @@ Lemma rutt_trigger {E1 E2 R1 R2}
   (RAns : forall A B, E1 A -> A -> E2 B -> B -> Prop)
   {RR : R1 -> R2 -> Prop} 
   (e1: E1 R1) (e2: E2 R2) :
-  EE1 R1 e1 = true ->
-  EE2 R2 e2 = true ->
   (REv _ _ e1 e2: Prop) -> 
   (forall t1 t2, (RAns _ _ e1 t1 e2 t2: Prop) -> (RR t1 t2: Prop)) -> 
   rutt EE1 EE2 REv RAns RR (trigger e1) (trigger e2).
