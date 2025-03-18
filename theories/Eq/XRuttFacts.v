@@ -513,6 +513,39 @@ Section RuttMrec.
  
 End RuttMrec.
 
+Section RuttRec.
+  Context (E1 E2 : Type -> Type) {A1 A2 B1 B2: Type}.
+
+  Context (EE1: forall X, E1 X -> bool).
+  Context (EE2: forall X, E2 X -> bool).
+            
+  Context (bodies1 : A1 -> itree (callE A1 B1 +' E1) B1)
+          (bodies2 : A2 -> itree (callE A2 B2 +' E2) B2).
+  
+  Context (RPre : prerel E1 E2) (RPreInv : prerel (callE A1 B1) (callE A2 B2))
+     (RPost : postrel E1 E2) (RPostInv : postrel (callE A1 B1) (callE A2 B2)).
+
+  Context (Hbodies: forall (A B : Type)
+                           (d1 : callE A1 B1 A) (d2 : callE A2 B2 B),
+  RPreInv A B d1 d2 -> 
+  rutt (EE_MR EE1 (callE A1 B1)) (EE_MR EE2 (callE A2 B2))  
+    (sum_prerel RPreInv RPre) (sum_postrel RPostInv RPost)
+    (fun (a : A) (b : B) => RPostInv A B d1 a d2 b) 
+    (calling' bodies1 A d1) (calling' bodies2 B d2)).
+
+  Lemma rec_rutt a1 a2 : 
+    RPreInv B1 B2 (Call a1) (Call a2) -> 
+    rutt EE1 EE2 RPre RPost
+      (fun (t1 : B1) (t2 : B2) =>  
+         RPostInv B1 B2 (Call a1) t1 (Call a2) t2) 
+         (rec bodies1 a1) (rec bodies2 a2).
+  Proof.
+    unfold rec.
+    eapply mrec_rutt with (RPreInv:=RPreInv). eauto.
+  Qed.  
+  
+End RuttRec.
+
 (** Relating [X-rutt] and [iter] *)
 
 Section RuttIter.
