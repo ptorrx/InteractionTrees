@@ -50,34 +50,26 @@ Notation WillCutoff EE t :=
     (exists T (e: _ T) k,
       EE T e = false /\ @eutt _ _ _ eq t (Vis e k)).
 
-Notation IsCut EE e := (EE e = false).
-Notation NoCut EE e := (EE e = true).
-Notation IsCut_ EE A e := (EE A e = false).
-Notation NoCut_ EE A e := (EE A e = true).
+Notation IsCut EE A e := (EE A e = false).
+Notation NoCut EE A e := (EE A e = true).
 
 Section RuttF.
 
   Context {E1 E2 : Type -> Type}.
   Context {R1 R2 : Type}.
 
-  Context (EE1: forall X, E1 X -> bool).
-  Context (EE2: forall X, E2 X -> bool).
-  Context (ER1 : forall X, E1 X -> R2 -> Prop).
-  Context (ER2 : forall X, E2 X -> R1 -> Prop).
+  Context (EE1: forall {X}, E1 X -> bool).
+  Context (EE2: forall {X}, E2 X -> bool).
+  Context (ER1 : forall {X}, E1 X -> R2 -> Prop).
+  Context (ER2 : forall {X}, E2 X -> R1 -> Prop).
   
   Context (REv : forall (A B : Type), E1 A -> E2 B -> Prop ).
   Context (RAns : forall (A B : Type), E1 A -> A -> E2 B -> B -> Prop ).    
   Context (RR : R1 -> R2 -> Prop).
-  
-  Arguments EE1 {X}.
-  Arguments EE2 {X}.
-  Arguments ER1 {X}.
-  Arguments ER2 {X}.
   Arguments REv {A} {B}.
   Arguments RAns {A} {B}.
   
-  Inductive ruttF (sim : itree E1 R1 -> itree E2 R2 -> Prop) :
-    itree' E1 R1 -> itree' E2 R2 -> Prop :=
+  Inductive ruttF (sim : itree E1 R1 -> itree E2 R2 -> Prop) : itree' E1 R1 -> itree' E2 R2 -> Prop :=
   | EqRet : forall (r1 : R1) (r2 : R2),
       RR r1 r2 ->
       ruttF sim (RetF r1) (RetF r2)
@@ -90,21 +82,21 @@ Section RuttF.
       (forall (a : A) (b : B), RAns e1 a e2 b -> sim (k1 a) (k2 b)) ->
       ruttF sim (VisF e1 k1) (VisF e2 k2)
   | EqVisRet : forall (A : Type) (e1 : E1 A) (k1 : A -> itree E1 R1) (r2 : R2),
-      IsCut EE1 e1 -> 
-      ER1 e1 r2 ->
+      IsCut EE1 A e1 -> 
+      ER1 A e1 r2 ->
       ruttF sim (VisF e1 k1) (RetF r2)
   | EqRetVis : forall (A : Type) (e2 : E2 A) (k2 : A -> itree E2 R2) (r1 : R1),
-      IsCut EE2 e2 -> 
-      ER2 e2 r1 ->
+      IsCut EE2 A e2 -> 
+      ER2 A e2 r1 ->
       ruttF sim (RetF r1) (VisF e2 k2)
   | EqVisTau : forall (A : Type) (e1 : E1 A) (k1 : A -> itree E1 R1)
                       (m2 : itree E2 R2),
-     IsCut EE1 e1 -> 
+     IsCut EE1 A e1 -> 
      sim (Vis e1 k1) m2 ->
      ruttF sim (VisF e1 k1) (TauF m2)
   | EqTauVis : forall (A : Type) (e2 : E2 A) (k2 : A -> itree E2 R2)
                       (m1 : itree E1 R1),
-     IsCut EE2 e2 -> 
+     IsCut EE2 A e2 -> 
      sim m1 (Vis e2 k2) ->
      ruttF sim (TauF m1) (VisF e2 k2)
   | EqTauL : forall (t1 : itree E1 R1) (ot2 : itree' E2 R2),
@@ -132,8 +124,8 @@ Section RuttF.
     ruttF sim t1 (VisF e2 k2) ->
     (exists U1 (e1: E1 U1) k1, t1 = VisF e1 k1 /\
          forall v1 v2, RAns e1 v1 e2 v2 -> sim (k1 v1) (k2 v2)) \/
-    (exists (r1: R1), t1 = RetF r1 /\ IsCut EE2 e2 /\ ER2 e2 r1) \/
-    (exists t1', t1 = TauF t1' /\ IsCut EE2 e2 /\ sim t1' (Vis e2 k2)) \/
+    (exists (r1: R1), t1 = RetF r1 /\ IsCut EE2 U2 e2 /\ ER2 U2 e2 r1) \/
+    (exists t1', t1 = TauF t1' /\ IsCut EE2 U2 e2 /\ sim t1' (Vis e2 k2)) \/
     (exists t1', t1 = TauF t1' /\ ruttF sim (observe t1') (VisF e2 k2)).
   Proof.
     intros H; destruct t1. 
@@ -174,7 +166,7 @@ Tactic Notation "fold_ruttF" hyp(H) :=
   try punfold H;
   try red in H;
   match type of H with
-  | ruttF ?_EE1 ?_EE2 ?_ER1 ?_ER2 ?_REV ?_RANS ?_RR (upaco2 (rutt_ ?_EE1 ?_EE2 ?_ER1 ?_ER2 ?_REV ?_RANS ?_RR) bot2) ?_OT1 ?_OT2 =>
+  | ruttF ?_REV ?_RANS ?_RR (upaco2 (rutt_ ?_EE1 ?_EE2 ?_ER1 ?_ER2 ?_REV ?_RANS ?_RR) bot2) ?_OT1 ?_OT2 =>
       match _OT1 with
       | observe _ => idtac
       | ?_OT1 => rewrite (itree_eta' _OT1) in H
@@ -193,22 +185,15 @@ Section ConstructionInversion.
   Variables (E1 E2: Type -> Type).
   Variables (R1 R2: Type).
 
-  Context (EE1: forall X, E1 X -> bool).
-  Context (EE2: forall X, E2 X -> bool).
-  Context (ER1 : forall X, E1 X -> R2 -> Prop).
-  Context (ER2 : forall X, E2 X -> R1 -> Prop).
+  Context (EE1: forall {X}, E1 X -> bool).
+  Context (EE2: forall {X}, E2 X -> bool).
+  Context (ER1 : forall {X}, E1 X -> R2 -> Prop).
+  Context (ER2 : forall {X}, E2 X -> R1 -> Prop).
 
   Variable (REv: forall T1 T2, E1 T1 -> E2 T2 -> Prop).
   Variable (RAns: forall T1 T2, E1 T1 -> T1 -> E2 T2 -> T2 -> Prop).
   Variable (RR: R1 -> R2 -> Prop).
 
-(*  Arguments EE1 {X}.
-  Arguments EE2 {X}.
-  Arguments ER1 {X}.
-  Arguments ER2 {X}. *)
-(*  Arguments REv {A} {B}.
-  Arguments RAns {A} {B}. *)
- 
 Lemma rutt_Ret r1 r2:
   RR r1 r2 ->
   @rutt E1 E2 R1 R2 EE1 EE2 ER1 ER2 REv RAns RR
@@ -225,7 +210,7 @@ Lemma rutt_inv_Ret_l r1 t2:
   rutt EE1 EE2 ER1 ER2 REv RAns RR (Ret r1) t2 ->
    (exists r2, t2 ≳ Ret r2 /\ RR r1 r2) \/
    (exists U2 (e2 : E2 U2) (k2 : U2 -> itree E2 R2),
-         t2 ≳ Vis e2 k2 /\ IsCut_ EE2 U2 e2 /\ ER2 U2 e2 r1).
+         t2 ≳ Vis e2 k2 /\ IsCut EE2 U2 e2 /\ ER2 U2 e2 r1).
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t2). remember (RetF r1) as ot1; revert Heqot1.
@@ -243,7 +228,7 @@ Lemma rutt_inv_Ret_r t1 r2:
   rutt EE1 EE2 ER1 ER2 REv RAns RR t1 (Ret r2) ->
   (exists r1, t1 ≳ Ret r1 /\ RR r1 r2) \/
     (exists U1 (e1 : E1 U1) (k1 : U1 -> itree E1 R1),
-        t1 ≳ Vis e1 k1/\ IsCut_ EE1 U1 e1 /\ ER1 U1 e1 r2).
+        t1 ≳ Vis e1 k1/\ IsCut EE1 U1 e1 /\ ER1 U1 e1 r2).
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
   setoid_rewrite (itree_eta t1). remember (RetF r2) as ot2; revert Heqot2.
@@ -323,8 +308,8 @@ Lemma rutt_inv_Vis_l {U1} (e1: E1 U1) k1 t2:
     REv _ _ e1 e2 /\
     (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
                      rutt EE1 EE2 ER1 ER2 REv RAns RR (k1 v1) (k2 v2))) \/
-    (exists (r2: R2), t2 ≈ Ret r2 /\ IsCut_ EE1 U1 e1 /\ ER1 U1 e1 r2) \/
-    (exists t2', t2 ≳ Tau t2' /\ IsCut_ EE1 U1 e1 /\
+    (exists (r2: R2), t2 ≈ Ret r2 /\ IsCut EE1 U1 e1 /\ ER1 U1 e1 r2) \/
+    (exists t2', t2 ≳ Tau t2' /\ IsCut EE1 U1 e1 /\
                    rutt EE1 EE2 ER1 ER2 REv RAns RR (Vis e1 k1) t2').
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
@@ -374,8 +359,8 @@ Lemma rutt_inv_Vis_r {U2} t1 (e2: E2 U2) k2:
     REv U1 U2 e1 e2 /\
     (forall v1 v2, RAns _ _ e1 v1 e2 v2 ->
                      rutt EE1 EE2 ER1 ER2 REv RAns RR (k1 v1) (k2 v2))) \/
-    (exists (r1: R1), t1 ≈ Ret r1 /\ IsCut_ EE2 U2 e2 /\ ER2 U2 e2 r1) \/
-    (exists t1', t1 ≳ Tau t1' /\ IsCut_ EE2 U2 e2 /\
+    (exists (r1: R1), t1 ≈ Ret r1 /\ IsCut EE2 U2 e2 /\ ER2 U2 e2 r1) \/
+    (exists t1', t1 ≳ Tau t1' /\ IsCut EE2 U2 e2 /\
                    rutt EE1 EE2 ER1 ER2 REv RAns RR t1' (Vis e2 k2)).      
 Proof.
   intros Hrutt; punfold Hrutt; red in Hrutt; cbn in Hrutt.
@@ -434,10 +419,10 @@ Section euttge_trans_clo.
 
   Context {E1 E2 : Type -> Type} {R1 R2 : Type}.
 
-  Context (EE1: forall X, E1 X -> bool).
-  Context (EE2: forall X, E2 X -> bool).
-  Context (ER1 : forall X, E1 X -> R2 -> Prop).
-  Context (ER2 : forall X, E2 X -> R1 -> Prop).
+  Context (EE1: forall {X}, E1 X -> bool).
+  Context (EE2: forall {X}, E2 X -> bool).
+  Context (ER1 : forall {X}, E1 X -> R2 -> Prop).
+  Context (ER2 : forall {X}, E2 X -> R1 -> Prop).
   
   Context (RR : R1 -> R2 -> Prop).
 
@@ -458,9 +443,9 @@ Section euttge_trans_clo.
         (EQVl: euttge RR1 t1 t1')
         (EQVr: euttge RR2 t2 t2')
         (REL: rr t1' t2')
-        (LEER1: forall A1 (e1: E1 A1) y y', IsCut_ EE1 _ e1 ->
+        (LEER1: forall A1 (e1: E1 A1) y y', IsCut EE1 _ e1 ->
                   RR2 y y' -> ER1 _ e1 y' -> ER1 _ e1 y)
-        (LEER2: forall A2 (e2: E2 A2) x x', IsCut_ EE2 _ e2 ->
+        (LEER2: forall A2 (e2: E2 A2) x x', IsCut EE2 _ e2 ->
                   RR1 x x' -> ER2 _ e2 x' -> ER2 _ e2 x) 
         (LERR1: forall x x' y, RR1 x x' -> RR x' y -> RR x y)
         (LERR2: forall x y y', RR2 y y' -> RR x y' -> RR x y) :
