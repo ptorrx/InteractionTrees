@@ -18,7 +18,7 @@ From ITree Require Import
   ITreeFacts
   Core.Subevent
   Basics.HeterogeneousRelations
-  Eq.YRutt3 (* Eq.YRutt *)
+  Eq.YRutt (* Eq.YRutt3 *)
   Props.Leaf.
 
 (* Morphisms related to [REv] and [RAns]. Both behave nicely up to quantified
@@ -325,19 +325,19 @@ Proof.
       { clear IHHeutt. remember (VisF e k) as m1; revert Heqm1.
         induction Heutt as [| |U1 e1 k1 k1' Hk1k1'| |]; intros;
           try discriminate.        
-        - symmetry in Heqm1; dependent destruction Heqm1.
+        { symmetry in Heqm1; dependent destruction Heqm1.
           rewrite tau_euttge, (itree_eta m2).
           punfold Hrutt; red in Hrutt; cbn in Hrutt.
           remember (VisF e1 k1) as m1; revert Heqm1.
           induction Hrutt; intros; try discriminate.
-          * dependent destruction Heqm1.
+          + dependent destruction Heqm1.
             gfinal; right. pstep; red; cbn.
             apply EqVis; auto. intros v1 v2 HAns. specialize (H0 v1 v2 HAns).
             hnf in H0; hnf. pclearbot; right. apply (CIH (k1 v1)); auto.
             apply Hk1k1'.
-          * dependent destruction Heqm1.
+          + dependent destruction Heqm1.
             gstep. apply EqVisRet; auto.
-          * dependent destruction Heqm1.
+          + dependent destruction Heqm1.
             pclearbot.
             gstep. apply EqVisTau; auto.
             gfinal. left. eapply CIH; eauto.
@@ -346,8 +346,10 @@ Proof.
             intros. unfold id. red. left; eauto.
         (*  * inv Heqm1.
             gstep. red. eapply EqVisTau; eauto. *)
-          * idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
-        - idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
+          + idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
+        }    
+        { idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
+      }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
       fold_eqitF Heutt. rewrite tau_euttge in Heutt. now apply (CIH m1).
 (*****)
@@ -355,6 +357,7 @@ Proof.
      continuations are "only" ≈. The up-to-eutt principle that enforces Vis
      steps could work, but we don't have it for rutt. Instead we peel the Tau
      layers off t1' with a manual induction. *)
+ (*  - rewrite itree_eta. gstep. red. simpl.   *) 
   - rewrite itree_eta. gfinal; right; pstep.
     rename H0 into HAns. punfold Heutt; red in Heutt; cbn in Heutt.
     remember (VisF e1 k1) as m1; revert Heqm1.
@@ -382,8 +385,163 @@ Proof.
       apply EqRetVis; auto.
     + apply EqTauL. eapply IHHeutt; auto.   
 
-  (* EqVisTau *)    
-  - punfold Heutt; red in Heutt; cbn in Heutt.
+  (* EqVisTau *)
+  - rewrite itree_eta. gfinal; right; pstep.
+    
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    remember (VisF e1 k1) as m1; revert Heqm1.
+    induction Heutt; intros; try discriminate.
+
+    dependent destruction Heqm1.
+
+    + assert (eutt eq (Vis e1 k1) (Vis e1 k2)) as H1.
+      { pstep. red. econstructor. auto. }
+
+      red. econstructor; eauto.
+      pclearbot; right. eapply CIH; eauto.
+    + specialize (IHHeutt H0 Heqm1). 
+      inv Heqm1.
+      red. econstructor.
+      right.
+
+      assert (eutt eq (Vis e1 k1) t2) as H1.
+      { pstep. red. auto. }
+
+      pclearbot.
+      eapply CIH; eauto.
+
+  (* EqTauVis *)
+  - pclearbot.
+    eapply eqit_inv_Tau_l in Heutt.
+    
+    specialize (CIH m1 t1' Heutt (Vis e2 k2) H0).
+
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    dependent induction Heutt.
+
+    rewrite x0 in x.
+    admit.
+
+    admit.
+
+    admit.
+
+    (** hard case *)
+    
+    eapply IHHeutt; eauto.
+    rewrite <- x.
+
+ (* PROBLEM : the inductive hypothesis does not work (requires a
+ problematic hypothesis). on the other hand, coinduction cannot be
+ applied, because there is no constructor we can apply to the goal
+ (unless we destruct t1', but this leads to other problems).  *)
+    
+    admit.
+    admit.
+   
+  (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
+     apply immediately; then handle the added Tau in ≈, which is trivial. *)
+  - apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
+    
+  (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
+     way we rewrite t1, so we can follow down and recurse. *)
+  - rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
+Abort.
+
+    
+(*    
+    setoid_rewrite <- itree_eta in x.
+    
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    rewrite itree_eta. pclearbot.
+
+(*    punfold H. red in H. eapply fold_ruttF in H. *)
+
+    fold_ruttF H0.
+    remember (Vis e2 k2) as m2. revert H0 Heqm2. revert m2.
+    dependent induction Heutt; intros * Hrutt Heqot2; try discriminate.
+
+    + inv x.
+      gfinal; right; pstep; red.
+      eapply EqTauVis; auto.
+      pclearbot.
+      right. eapply CIH; eauto.
+    + inv Heqot2.
+      gfinal; right; pstep; red.
+      
+    + 
+      
+    
+    induction Heutt as [|m1_bis m1'| |m1_bis ot1' _|t1_bis m1'];
+    intros * Hrutt Heqot2; try discriminate.
+
+    inv REL.
+    
+
+
+    (* eapply eqit_inv_Tau_l in Heutt. *)
+
+    rewrite itree_eta. gfinal; right; pstep.
+    
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    remember (VisF e2 k2) as m2; revert Heqm2.
+    induction Heutt; intros; try discriminate.
+
+    inv REL.
+    red. eapply EqRetVis; auto.
+
+    
+    
+    rewrite itree_eta. gfinal; right; pstep.
+    red. simpl. pclearbot.
+
+         
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    rewrite itree_eta. pclearbot.
+
+(*    punfold H. red in H. eapply fold_ruttF in H. *)
+
+    fold_ruttF H0.
+    remember (Vis e2 k2) as m2. revert H0 Heqm2. revert m2.
+    induction Heutt as [|m1_bis m1'| |m1_bis ot1' _|t1_bis m1'];
+    intros * Hrutt Heqot2; try discriminate.
+
+
+
+    rewrite itree_eta. gfinal; right; pstep.
+    
+    punfold Heutt; red in Heutt; cbn in Heutt.
+    remember (VisF e2 k2) as m2; revert Heqm2.
+    induction Heutt. intros; try discriminate.
+
+    dependent destruction Heqm2.
+
+    + assert (eutt eq (Vis e1 k1) (Vis e1 k2)) as H1.
+      { pstep. red. econstructor. auto. }
+
+      red. econstructor; eauto.
+      pclearbot; right. eapply CIH; eauto.
+    + specialize (IHHeutt H0 Heqm1). 
+      inv Heqm1.
+      red. econstructor.
+      right.
+
+      assert (eutt eq (Vis e1 k1) t2) as H1.
+      { pstep. red. auto. }
+
+      pclearbot.
+      eapply CIH; eauto.
+
+
+
+   Heutt :
+    eqitF eq true true id (upaco2 (eqit_ eq true true id) bot2) m1
+      (observe t1')
+*)
+      
+(**)
+(*
+    punfold Heutt; red in Heutt; cbn in Heutt.
     rewrite itree_eta. pclearbot.
 
 (*    punfold H. red in H. eapply fold_ruttF in H. *)
@@ -395,7 +553,6 @@ Proof.
     + inv REL. gfinal. right.
       punfold Hrutt. red in Hrutt.
       pstep; red. apply EqTauR; eauto with paco. 
-
       assert ((upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) bot2) <2=
                 (upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) r)) as A1.
       { intros.
@@ -404,13 +561,31 @@ Proof.
         left. 
         eapply paco2_mon_bot; eauto.
       }
-
       eapply rutt_monot; eauto.
+    + inv Heqot2.
+      pclearbot. gfinal; right; pstep; red.
+      apply EqTau. right.
 
-    + admit.
-    + admit.
+      assert (paco2 (eqit_ eq true true id) bot2 (Tau m1_bis) m1') as H0.
+      { pstep; red. punfold REL; red in REL. econstructor; eauto. }
+      apply (CIH (Tau m1_bis) m1'); eauto.
+    + 
+*)
+(*
+      inv Heqot2. rewrite itree_eta. gfinal; right; pstep. red.
+      eapply EqTauR.
+
+
+      
+    rename H0 into HAns. punfold Heutt; red in Heutt; cbn in Heutt.
+    remember (VisF e1 k1) as m1; revert Heqm1.
+
+
+
+      admit.
     + admit.  
     + admit.  
+*)
 (*      clear Hrutt.
       assert (ruttF EE1 EE2 ER1 ER2 REv RAns RR
     (upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) r) 
@@ -421,33 +596,9 @@ Proof.
       (observe (Ret r2)) (observe m2)).
       intros. eauto with paco.
 *)
-      
-  (* EqTauVis *)    
-  - admit.
-    
-  (*    
-  (* left cutoff *)    
-  - rewrite itree_eta. gfinal; right; pstep.
-    remember (VisF e1 k1) as m1; revert Heqm1.
-    punfold Heutt; red in Heutt; cbn in Heutt.
-    induction Heutt; intros; try discriminate.
-    + dependent destruction Heqm1.
-      apply EqCutL; auto.
-    + apply EqTauL. eapply IHHeutt; auto.
-*)
-(*
-  (* right cutoff *)  
-  - gstep; red. econstructor; auto.
-*)
-  
-  (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
-     apply immediately; then handle the added Tau in ≈, which is trivial. *)
-  - apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
-    
-  (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
-     way we rewrite t1, so we can follow down and recurse. *)
-  - rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
-Qed.    
+
+(*********************************************************************)
+
     
 #[global] Instance rutt_Proper_R3 {E1 E2 R1 R2}
   (EE1: forall X, E1 X -> bool)
