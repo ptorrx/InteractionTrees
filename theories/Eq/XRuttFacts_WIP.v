@@ -25,6 +25,12 @@ From ITree Require Import
    relation equality. There are also symmetry results when flipped.
 *)
 
+Notation IsCut EE e := (EE e = false).
+Notation IsEff EE e := (EE e = true).
+Notation IsCut_ EE A e := (EE A e = false).
+Notation IsEff_ EE A e := (EE A e = true).
+
+
 Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
   forall A, E1 A = E2 A.
 
@@ -1078,6 +1084,7 @@ Proof.
   clear t3.
 (*  inv WH. *)
 
+  revert WH.
   hinduction INL before CIH; intros; subst.
 
   { remember (RetF r2) as ot.
@@ -1169,6 +1176,145 @@ Proof.
   (* 5: tau1 *)
   { constructor. eapply IHINL; eauto. }
 
+  { remember (TauF t0) as ot.
+    hinduction INR before CIH; intros; try inversion Heqot; subst.
+    + by constructor; eapply IHINL; pclearbot; punfold H.
+    + eapply EqCutR; eauto.  
+    + eauto with itree.
+      constructor; eauto.
+  }
+Abort.   
+
+
+Lemma rutt_trans3 {E1 E2 E3: Type -> Type} {R1 R2 R3 : Type}
+  (EE1: forall X, E1 X -> bool)
+  (EE2: forall X, E2 X -> bool)
+  (EE3: forall X, E3 X -> bool)
+  (REv12 : prerel E1 E2)
+  (REv23 : prerel E2 E3)
+  (RAns12: postrel E1 E2)
+  (RAns23: postrel E2 E3)
+  (RR12 : R1 -> R2 -> Prop)
+  (RR23 : R2 -> R3 -> Prop)
+  (CND: forall T1 T2 (e1: E1 T1) (e2: E2 T2),
+      REv12 T1 T2 e1 e2 -> IsCut_ EE2 T2 e2 -> IsCut_ EE1 T1 e1)
+  t1 t2 t3 : 
+  forall (INL : rutt (@EE1) (@NoCut E2) REv12 RAns12 RR12 t1 t2) 
+         (INR : rutt (@EE2) (@EE3) REv23 RAns23 RR23 t2 t3),
+    rutt (@EE1) (@EE3)
+      (prcompose REv12 REv23)
+      (pocompose REv12 REv23 RAns12 RAns23)
+      (rrcompose RR12 RR23) t1 t3. 
+Proof.
+  revert t1 t2 t3.
+  pcofix CIH; intros t1 t2 t3 INL INR.
+
+  punfold INL; punfold INR.
+  red in INL; red in INR.
+  pstep. red.
+  remember (observe t3) as ot3.
+  clear Heqot3 t3.
+
+  hinduction INL before CIH; intros; subst.
+
+  (* 1 : ret1 ret2 *)  
+  { remember (RetF r2) as ot.
+    hinduction INR before CIH; intros; inv Heqot; eauto with paco itree.
+    + by constructor; econstructor; eauto.
+      eapply EqCutR; eauto.
+      by constructor; eauto.
+  }
+
+  (* 2: tau1 tau2 *)
+  { assert (DEC: (exists m3, ot3 = TauF m3) \/ (forall m3, ot3 <> TauF m3)).
+      { by destruct ot3; eauto; right; red; intros; inv H. }
+      destruct DEC as [EQ | EQ].      
+    + destruct EQ as [m3 ?]; subst.
+      econstructor. right. pclearbot.
+      eapply CIH; eauto with paco.
+      eapply rutt_inv_Tau. by eapply fold_ruttF; first eapply INR.
+    + inv INR; try (exfalso; eapply EQ; eauto; fail).
+      * econstructor; eauto.
+      econstructor; eauto.  
+      pclearbot. punfold H. red in H.
+      hinduction H1 before CIH; intros; try (exfalso; eapply EQ; eauto; fail).
+
+      (* ret3 *)
+      { remember (RetF r1) as ot.
+        hinduction H0 before CIH; intros; inv Heqot; eauto with paco itree.
+        + constructor. econstructor; eauto.
+        + eapply EqCutL; eauto.  
+        + by constructor; eapply IHruttF; eauto. }
+
+      (* vis3 *)
+      { remember (VisF e1 k1) as ot.
+        hinduction H3 before CIH; intros; try discriminate.
+
+        { dependent destruction Heqot.
+          constructor; eauto.
+          + by econstructor; eauto.
+          
+          + move=> a b /(_ _ _ H1 H5) [t4 HA12 HA23].
+            move: H3 => /= ?; subst.
+            destruct (H2 _ _ HA12), (H6 _ _ HA23); try contradiction; eauto.
+        }    
+
+        { eapply EqCutL; eauto. }
+        { by constructor; eauto. }
+      }
+
+      (* cut2 *)
+      { admit. }
+
+      (* cut3 *)
+      { eapply EqCutR; eauto. }
+
+      (* tau2 *)
+      { eapply IHruttF; eauto. pstep_reverse.
+          by apply rutt_inv_Tau_r; eapply fold_ruttF; eauto.
+      }  
+  }
+
+  (* 3: vis1 vis2 *)
+  { remember (VisF e2 k2) as ot.
+    hinduction INR before CIH; intros; try discriminate.
+
+    (* vis3 *)
+    { dependent destruction Heqot.
+      constructor; eauto.
+
+      + by econstructor; eauto.
+
+      + move=> a b /(_ _ _ H5 H1) [t4 HA12 HA23].
+
+        specialize (H6 a t4 HA12).
+        specialize (H2 t4 b HA23).
+        pclearbot. right.
+        eapply (CIH (k0 a) (k3 t4) (k2 b)); eauto.
+    }
+
+    (* cut2 *)
+    { dependent destruction Heqot.
+      admit.
+    }
+
+    (* cut3 *)
+    { eapply EqCutR; eauto. }
+
+    (* tau3 *)
+    { eapply EqTauR; eauto. }
+  }
+
+  (* 4: cut1 *)
+  { eapply EqCutL; eauto. }
+
+  (* 5: cut2 *)
+  { unfold NoCut in *. auto with *. }
+  
+  (* 6: tau1 *)
+  { constructor. eapply IHINL; eauto. }
+
+  (* 7: tau2 *)
   { remember (TauF t0) as ot.
     hinduction INR before CIH; intros; try inversion Heqot; subst.
     + by constructor; eapply IHINL; pclearbot; punfold H.
