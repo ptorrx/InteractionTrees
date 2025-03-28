@@ -1215,11 +1215,11 @@ Proof.
   remember (observe t3) as ot3.
   clear Heqot3 t3.
 
-  hinduction INL before CIH; intros; subst.
-
+  hinduction INL before CIH; intros; subst. 
+  
   (* 1 : ret1 ret2 *)  
-  { remember (RetF r2) as ot.
-    hinduction INR before CIH; intros; inv Heqot; eauto with paco itree.
+  { remember (RetF r2) as ot2.
+    hinduction INR before CIH; intros; inv Heqot2; eauto with paco itree.
     + by constructor; econstructor; eauto.
       eapply EqCutR; eauto.
       by constructor; eauto.
@@ -1233,24 +1233,24 @@ Proof.
       econstructor. right. pclearbot.
       eapply CIH; eauto with paco.
       eapply rutt_inv_Tau. by eapply fold_ruttF; first eapply INR.
-    + inv INR; try (exfalso; eapply EQ; eauto; fail).
+    + inv INR; try (exfalso; eapply EQ; eauto; fail). 
       * econstructor; eauto.
       econstructor; eauto.  
       pclearbot. punfold H. red in H.
       hinduction H1 before CIH; intros; try (exfalso; eapply EQ; eauto; fail).
 
       (* ret3 *)
-      { remember (RetF r1) as ot.
-        hinduction H0 before CIH; intros; inv Heqot; eauto with paco itree.
+      { remember (RetF r1) as ot2.
+        hinduction H0 before CIH; intros; inv Heqot2; eauto with paco itree.
         + constructor. econstructor; eauto.
         + eapply EqCutL; eauto.  
         + by constructor; eapply IHruttF; eauto. }
 
       (* vis3 *)
-      { remember (VisF e1 k1) as ot.
+      { remember (VisF e1 k1) as ot2.
         hinduction H3 before CIH; intros; try discriminate.
 
-        { dependent destruction Heqot.
+        { dependent destruction Heqot2.
           constructor; eauto.
           + by econstructor; eauto.
           
@@ -1264,11 +1264,10 @@ Proof.
       }
 
       (* cut2 *)
-      { clear EQ.
-        remember (VisF e1 k1) as ot.
+      { clear EQ; remember (VisF e1 k1) as ot4.
         hinduction H0 before CIH; intros; try discriminate.
 
-        - dependent destruction Heqot.
+        - dependent destruction Heqot4.
           eapply EqCutL; eauto.
         - eapply EqCutL; eauto.
         - eapply EqTauL; eauto.  
@@ -1284,11 +1283,11 @@ Proof.
   }
 
   (* 3: vis1 vis2 *)
-  { remember (VisF e2 k2) as ot.
+  { remember (VisF e2 k2) as ot2.
     hinduction INR before CIH; intros; try discriminate.
 
     (* vis3 *)
-    { dependent destruction Heqot.
+    { dependent destruction Heqot2.
       constructor; eauto.
 
       + by econstructor; eauto.
@@ -1302,7 +1301,7 @@ Proof.
     }
 
     (* cut2 *)
-    { dependent destruction Heqot.
+    { dependent destruction Heqot2.
       specialize (CND _ _ e0 e2 H2 H).
       eapply EqCutL; eauto.
     }
@@ -1324,8 +1323,8 @@ Proof.
   { constructor. eapply IHINL; eauto. }
 
   (* 7: tau2 *)
-  { remember (TauF t0) as ot.
-    hinduction INR before CIH; intros; try inversion Heqot; subst.
+  { remember (TauF t0) as ot2.
+    hinduction INR before CIH; intros; try inversion Heqot2; subst.
     + by constructor; eapply IHINL; pclearbot; punfold H.
     + eapply EqCutR; eauto.  
     + eauto with itree.
