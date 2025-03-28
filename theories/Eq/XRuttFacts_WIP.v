@@ -1303,7 +1303,8 @@ Proof.
 
     (* cut2 *)
     { dependent destruction Heqot.
-      admit.
+      specialize (CND _ _ e0 e2 H2 H).
+      eapply EqCutL; eauto.
     }
 
     (* cut3 *)
@@ -1330,5 +1331,5 @@ Proof.
     + eauto with itree.
       constructor; eauto.
   }
-Admitted.   
+Qed.
 
