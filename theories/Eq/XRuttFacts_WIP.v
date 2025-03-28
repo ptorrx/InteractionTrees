@@ -1264,7 +1264,15 @@ Proof.
       }
 
       (* cut2 *)
-      { admit. }
+      { clear EQ.
+        remember (VisF e1 k1) as ot.
+        hinduction H0 before CIH; intros; try discriminate.
+
+        - dependent destruction Heqot.
+          eapply EqCutL; eauto.
+        - eapply EqCutL; eauto.
+        - eapply EqTauL; eauto.  
+      }
 
       (* cut3 *)
       { eapply EqCutR; eauto. }
