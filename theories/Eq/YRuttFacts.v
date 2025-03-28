@@ -173,8 +173,6 @@ Qed.
 
 (* Progressive [Proper] instances for [X-rutt] and congruence with eutt. *)
 
-Check @rutt.
-
 #[global] Instance rutt_Proper_R {E1 E2 R1 R2}
   (EE1: forall X, E1 X -> bool)
   (EE2: forall X, E2 X -> bool) :
@@ -295,19 +293,20 @@ Proof.
   move Hrutt before CIH. revert_until Hrutt.
   induction Hrutt as [ r1 r2 | m1 m2 | | | | | | m1 ot2 | ot1 m2 ];
     clear t1 t2; intros t1' Heutt.
-
+  
   (* EqRet: t1 = Ret r1 ≈ t1'; we can rewrite away the Taus with the euttge
      closure and finish immediately with EqRet. *)
-  - apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
+  { apply eutt_inv_Ret_l in Heutt. rewrite Heutt.
     gfinal; right; pstep. now apply EqRet.
+  }  
 
   (* EqTau: The hardest case. When Heutt is EqTauL then we lack information to
      proceed, which requires that [desobs m1]. We then have to restart
      analyzing based on m1; the Ret case repeats EqRet above, while the Vis
      case repeats EqVis below. *)
-  - punfold Heutt; red in Heutt; cbn in Heutt.
-    rewrite itree_eta. pclearbot.
-
+  { punfold Heutt; red in Heutt; cbn in Heutt.
+    rewrite itree_eta. pclearbot. 
+    
 (*    punfold H. red in H. eapply fold_ruttF in H. *)
 
     fold_ruttF H.
@@ -352,13 +351,14 @@ Proof.
       }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
       fold_eqitF Heutt. rewrite tau_euttge in Heutt. now apply (CIH m1).
-(*****)
+  }
+      
   (* EqVis: Similar to EqRet, but we don't have t1' ≳ Vis e1 k1 because the
      continuations are "only" ≈. The up-to-eutt principle that enforces Vis
      steps could work, but we don't have it for rutt. Instead we peel the Tau
      layers off t1' with a manual induction. *)
  (*  - rewrite itree_eta. gstep. red. simpl.   *) 
-  - rewrite itree_eta. gfinal; right; pstep.
+  { rewrite itree_eta. gfinal; right; pstep.
     rename H0 into HAns. punfold Heutt; red in Heutt; cbn in Heutt.
     remember (VisF e1 k1) as m1; revert Heqm1.
     induction Heutt; intros; try discriminate.
@@ -366,27 +366,30 @@ Proof.
       apply EqVis; auto. intros a b HAns'. specialize (HAns a b HAns').      
       hnf in HAns; hnf. pclearbot; right. apply (CIH (k1 a)); auto. apply REL.
     + now apply EqTauL, IHHeutt.
-
+  } 
+      
   (* EqVisRet *)
-  - rewrite itree_eta. gfinal; right; pstep.    
+  { rewrite itree_eta. gfinal; right; pstep.    
     remember (VisF e1 k1) as m1; revert Heqm1.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
       apply EqVisRet; auto.
     + apply EqTauL. eapply IHHeutt; auto.   
-
+  }
+      
   (* EqRetVis *)
-  - rewrite itree_eta. gfinal; right; pstep.
+  { rewrite itree_eta. gfinal; right; pstep.
     remember (RetF r1) as m1; revert Heqm1.
     punfold Heutt; red in Heutt; cbn in Heutt.
     induction Heutt; intros; try discriminate.
     + dependent destruction Heqm1.
       apply EqRetVis; auto.
     + apply EqTauL. eapply IHHeutt; auto.   
-
+  }
+      
   (* EqVisTau *)
-  - rewrite itree_eta. gfinal; right; pstep.
+  { rewrite itree_eta. gfinal; right; pstep.
     
     punfold Heutt; red in Heutt; cbn in Heutt.
     remember (VisF e1 k1) as m1; revert Heqm1.
@@ -409,17 +412,196 @@ Proof.
 
       pclearbot.
       eapply CIH; eauto.
+  }
 
-  (* EqTauVis *)
-  - pclearbot.
-    eapply eqit_inv_Tau_l in Heutt.
+  (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
+     apply immediately; then handle the added Tau in ≈, which is trivial. *)
+  2: { apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt. }
     
-    specialize (CIH m1 t1' Heutt (Vis e2 k2) H0).
+  (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
+     way we rewrite t1, so we can follow down and recurse. *)
+  2: { rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt. }
+        
+  (* EqTauVis.  idea: here we should have a coinductive call, so we
+   need to use CIH. but in order to do that, we need to apply a
+   constructor that give us a coinductive goal (and r goal). clearly,
+   this should be EqTauVis. but this requires t1' = Tau t''. 
+ *)
+  - pclearbot.
+    gstep; red.
+    
+    assert (eutt eq m1 t1') as Heutt1.
+    { eapply eqit_inv_Tau_l in Heutt; eauto. }
 
     punfold Heutt; red in Heutt; cbn in Heutt.
-    dependent induction Heutt.
+    punfold Heutt1; red in Heutt1; cbn in Heutt1.
+    
+    remember (observe m1) as ot_m1.
 
-    rewrite x0 in x.
+    hinduction Heutt1 before CIH; intros; try discriminate.
+
+    (* ret1 *)
+    { eapply EqRetVis; eauto.
+      inv REL.
+      (* ok, from H0 with Heqot_m1 *)
+      admit.
+    }  
+
+    (* tau1 *)
+    { pclearbot.
+      eapply EqTauVis; eauto.
+      gfinal. left.
+      eapply CIH; eauto.
+      (* ok, from H0 with Heqot_m1 *)
+      admit.
+    }
+
+    (* vis1 *)
+    { econstructor; eauto.
+      (* ok , rom H0 with Heqot_m1 *)
+      admit.
+      intros.
+      (* ok , rom H0 with Heqot_m1 *)
+      admit.
+    }
+
+    (* tau1 (again?) *)
+    2: { eapply EqTauVis; eauto.
+      gfinal. left.
+      eapply (CIH m1 t2).
+      (* ok *)
+      admit.
+      eauto.
+    }  
+    
+    { (* tauL: NO GOOD. eapply IHHeutt1; eauto. *)
+
+      (* PROBLEM : the inductive hypothesis does not work (requires a
+ problematic hypothesis). on the other hand, coinduction cannot be
+ applied, because there is no constructor we can apply to the goal
+ (unless we destruct t1', but this leads to other problems).  *)
+      
+      specialize (IHHeutt1 _ e2 k2 m1).
+      eapply IHHeutt1; eauto.
+      (* PROBLEM *)
+      admit.
+    }
+Abort.     
+
+
+(*    
+    { (* NO GOOD: eapply IHHeutt1; eauto. *)
+
+      punfold H0; red in H0. simpl in H0.
+      remember (VisF e2 k2) as ot3.
+      remember (observe m1) as ot4.
+      hinduction H0 before CIH; intros; try discriminate.
+
+      - inv Heqot_m1.
+        dependent destruction Heqot3.
+        eapply IHHeutt1; eauto.
+        pstep; red.
+        rewrite <- Heqot4.
+        eapply EqTauVis; eauto.
+        
+        
+        pstep; red.
+        
+     
+      specialize (IHHeutt1 _ e2 k2 (Tau m1)).
+
+      eapply IHHeutt1; eauto.
+      pstep; red.
+      punfold H0; red in H0.
+      eapply EqTauL; eauto.
+
+      econstructor; eauto.
+
+      (* NO GOOD *)
+      admit.
+    }
+*)
+
+(*    
+    { (* NO GOOD: eapply IHHeutt1; eauto. *)
+      
+      specialize (IHHeutt1 _ e2 k2 (Tau m1)).
+
+      eapply IHHeutt1; eauto.
+      pstep; red.
+      punfold H0; red in H0.
+      eapply EqTauL; eauto.
+
+      econstructor; eauto.
+
+      (* NO GOOD *)
+      admit.
+    }
+*)
+
+(*
+      assert (eqit eq true true m1 (go ot2)) as A1.
+      { admit. }
+
+      
+      
+    { inv Heqot_m1.
+      punfold H0; red in H0.
+      eapply IHHeutt; eauto.
+    
+    
+    remember (observe m1) as ot_m1. 
+    remember (observe t1') as ot1.
+    destruct ot1.
+
+     
+    
+    gstep; red.
+    rewrite <- Heqot1.
+    eapply EqRetVis; eauto.
+    hinduction Heutt before CIH; intros; try discriminate.
+    inv REL.
+    
+    
+    assert (exists ot_t1, eqitF eq false false id (eq_itree eq)
+                        (observe t1') ot_t1) as A1.
+    { exists (observe t1'). reflexivity. } 
+    destruct A1 as [ot_t1 A1].
+    
+    
+
+    
+    eapply eqit_inv_Tau_l in Heutt.
+    
+ (*   specialize (CIH m1 t1' Heutt (Vis e2 k2) H0). *)
+
+    punfold Heutt; red in Heutt; cbn in Heutt.
+
+    remember (Vis e2 k2) as m2.
+    remember (observe m1) as ot_m1. 
+    (*  remember (observe t1') as ot_t1. *)
+ 
+
+ 
+    destruct A1 as [ot_t1 A1].
+    hinduction Heutt before CIH; intros; try discriminate.
+    inv REL. 
+
+
+    
+    (*  dependent induction Heutt. *)
+(*
+    rewrite (itree_eta t1').
+    rewrite <- Heqot_t1.
+    gstep; red.
+    eapply EqRetVis; auto.
+    
+    punfold H0. red in H0.
+    rewrite <- Heqot_m1 in H0.
+    dependent destruction H0; auto. 
+*)  
+    admit.
+    
     admit.
 
     admit.
@@ -429,25 +611,13 @@ Proof.
     (** hard case *)
     
     eapply IHHeutt; eauto.
-    rewrite <- x.
+*)
 
  (* PROBLEM : the inductive hypothesis does not work (requires a
  problematic hypothesis). on the other hand, coinduction cannot be
  applied, because there is no constructor we can apply to the goal
  (unless we destruct t1', but this leads to other problems).  *)
     
-    admit.
-    admit.
-   
-  (* EqTauL: We get a very strong IHHrutt at the ruttF level, which we can
-     apply immediately; then handle the added Tau in ≈, which is trivial. *)
-  - apply IHHrutt. rewrite <- itree_eta. now rewrite <- tau_eutt.
-    
-  (* EqTauR: Adding a Tau on the side of t2 changes absolutely nothing to the
-     way we rewrite t1, so we can follow down and recurse. *)
-  - rewrite tau_euttge. rewrite (itree_eta m2). now apply IHHrutt.
-Abort.
-
     
 (*    
     setoid_rewrite <- itree_eta in x.
