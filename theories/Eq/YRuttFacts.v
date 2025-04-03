@@ -268,6 +268,406 @@ Proof.
     * intros. inv H; auto.  
 Qed.
 
+Lemma rutt_cong_eutt' {E1 E2 R1 R2}
+  (EE1: forall X, E1 X -> bool)
+  (EE2: forall X, E2 X -> bool) 
+  (ER1 : forall X, E1 X -> R2 -> Prop)
+  (ER2 : forall X, E2 X -> R1 -> Prop) :
+  forall REv RAns RR
+         (t1 t1': itree E1 R1) (t2: itree E2 R2),
+  t1 ≈ t1' ->    
+  rutt EE1 EE2 ER1 ER2 REv RAns RR t1' t2 ->
+  rutt EE1 EE2 ER1 ER2 REv RAns RR t1 t2.
+Proof.
+  intros REv RAns RR. 
+  pcofix CIH; intros t1 t1' t2 INL INR.
+   
+  punfold INL; punfold INR.
+  red in INL; red in INR.
+  pstep. red.
+  remember (observe t2) as ot23.
+  clear Heqot23 t2.
+
+  hinduction INL before CIH; intros; subst. 
+   
+  (* 1 : ret1 ret2 *)  
+  { remember (RetF r2) as ot2.
+    hinduction INR before CIH; intros; inv Heqot2; eauto with paco itree.
+    + eapply EqRet; eauto.
+    + eapply EqRetVis; eauto.
+    + constructor; eauto.   
+  }
+
+  (* 2: tau1 tau2 *)
+  { assert (DEC: (exists m23, ot23 = TauF m23) \/
+                   (forall m23, ot23 <> TauF m23)).
+      { destruct ot23; eauto; right; red; intros; discriminate. }
+      destruct DEC as [EQ | EQ].      
+    + destruct EQ as [m23 ?]; subst.
+      econstructor. right. pclearbot.
+      eapply CIH; eauto with paco.
+      eapply rutt_inv_Tau.
+      eapply fold_ruttF; try eapply INR; eauto. 
+    + inv INR; try (exfalso; eapply EQ; eauto; fail). 
+      * pclearbot. eapply EqTauVis; eauto.
+      * eapply EqTauL; eauto. 
+        pclearbot. punfold REL. red in REL.
+        hinduction H0 before CIH; intros; try (exfalso; eapply EQ; eauto; fail).
+
+      (* ret3 *)
+      { remember (RetF r1) as ot2.
+        hinduction REL before CIH; intros; inv Heqot2; eauto with paco itree.
+        + constructor; eauto. 
+        + eapply EqTauL; eauto. }
+
+      (* vis3 *)
+      { remember (VisF e1 k1) as ot2.
+        hinduction REL before CIH; intros; try discriminate.
+
+        { dependent destruction Heqot2.
+          constructor; eauto.
+          
+          intros a b H7.
+          destruct (H0 _ _ H7), (REL a); try contradiction; eauto. 
+        }    
+
+        { eapply EqTauL; eauto. }
+      }
+
+      (* cut2 NO *)
+      { clear EQ; remember (VisF e1 k1) as ot4.
+        hinduction REL before CIH; intros; try discriminate.
+
+        - dependent destruction Heqot4.
+          eapply EqVisRet; eauto.
+        - eapply EqTauL; eauto.  
+      }
+
+      { clear EQ; remember (RetF r1) as ot4.
+        hinduction REL before CIH; intros; try discriminate.
+
+        - dependent destruction Heqot4.
+          eapply EqRetVis; eauto.
+        - eapply EqTauL; eauto.  
+      }    
+
+      (* cut3 *)
+      { clear EQ.
+
+        assert (ruttF EE1 EE2 ER1 ER2 REv RAns RR
+            (upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) r) 
+            (TauF m0) (VisF e2 k2)) as BB.
+
+        eapply EqTauVis; eauto.
+        red.
+        right.
+        eapply CIH; eauto.
+        instantiate (1:= m1).
+        admit.
+
+        pclearbot.
+        punfold H0; red in H0.
+        pstep; red. auto.
+
+        admit.
+     }        
+
+      { eapply IHruttF; eauto. pstep_reverse. 
+        eapply eqit_inv_Tau_r; pstep; red; eauto.
+      }  
+  }
+
+  
+  (* 3: vis1 vis2 *)
+  { remember (VisF e k2) as ot2.
+    hinduction INR before CIH; intros; try discriminate.
+
+    (* vis3 *)
+    { dependent destruction Heqot2.
+      constructor; eauto.
+
+      intros a b H7.
+      destruct (H0 _ _ H7), (REL a); try contradiction; eauto. 
+    } 
+
+    (* cut2 *)
+    { dependent destruction Heqot2.
+      eapply EqVisRet; eauto.
+    }
+
+    { dependent destruction Heqot2.
+      pclearbot.
+      eapply EqVisTau; eauto.
+      red. right.
+      eapply CIH; eauto.
+      pstep; red.
+      econstructor; eauto.
+      intros.
+      red. red. left. eauto.
+    }
+      
+    { eapply EqTauR; eauto. }    
+  }
+      
+  { eapply EqTauL; eauto. }
+
+  { eapply IHINL; eauto.
+
+    assert (rutt EE1 EE2 ER1 ER2 REv RAns RR (Tau t2) (go ot23)) as A. 
+    { pstep; red; eauto. }
+
+    eapply rutt_inv_Tau_l in A; eauto.
+    punfold A; red in A.
+  }
+Admitted.
+  
+ 
+
+
+(*
+
+     
+        remember (TauF m1) as ot4.
+        revert H0. revert Heqot4. revert m1.
+        induction REL.
+
+        5: {
+        
+        intros; try discriminate.
+
+        3: {
+          
+        
+        
+        hinduction REL before CIH;
+        intros; try discriminate.
+
+        - dependent destruction Heqot4.
+          eapply EqTauVis; eauto.
+          red. right.
+          pclearbot.
+          eapply CIH; eauto.
+        - pclearbot.
+          eapply EqTauVis; eauto.
+          red. right.
+          eapply CIH; eauto.
+          inv Heqot4.
+          eapply eqit_inv_Tau_r.
+          pstep; red. auto.
+
+        - dependent destruction Heqot4.
+          pclearbot.
+
+
+
+          
+          punfold H0; red in H0.
+          remember (Vis e2 k2) as m4.
+
+          hinduction H0 before IHREL.
+
+          5: {
+          ; intros; try discriminate.
+          eapply IHREL; eauto.
+                               
+
+          (* PROBLEM *)
+          admit.
+      }
+
+      
+
+(****************)
+      
+      (* cut3 *)
+      { clear EQ. pclearbot.
+         
+
+        
+        remember (Vis e2 k2) as m4.
+        revert REL.
+        revert m0.
+        clear t1 t1'.
+        
+        punfold H0; red in H0.
+        hinduction H0 before CIH; intros; try discriminate. 
+
+        
+
+        assert (eqitF eq true true id (upaco2 (eqit_ eq true true id) bot2) 
+                  (observe m0) (observe m1)) as REL1.
+        { admit. }
+
+        clear REL.
+
+        remember (observe m0) as ot4.
+        hinduction REL1 before CIH; intros; try discriminate.
+
+        inv REL.
+        eapply EqRetVis; eauto.
+        
+        
+        
+        remember (TauF m1) as ot4. (* remember m0 as ot3. *)
+
+         
+
+        
+        hinduction REL before CIH; intros; try discriminate.
+
+        3: { pclearbot.
+             dependent destruction Heqot4.
+             inv Heqot3.
+             eapply IHREL; eauto.
+        }
+
+        pclearbot. eapply EqRetVis; eauto.
+        admit.
+
+        pclearbot.
+        eapply EqTauVis; eauto.
+        red. right.
+        eapply CIH; eauto.
+        
+        - dependent destruction Heqot4.
+          eapply EqTauVis; eauto.
+          red. right.
+          pclearbot.
+          eapply CIH; eauto.
+        - pclearbot.
+          eapply EqTauVis; eauto.
+          red. right.
+          eapply CIH; eauto.
+          inv Heqot4.
+          eapply eqit_inv_Tau_r.
+          pstep; red. auto.
+
+        - dependent destruction Heqot4.
+          pclearbot.
+
+          (* PROBLEM *)
+          admit.
+      }
+
+
+      
+      
+@eqitF_ind
+     : forall (E : Type -> Type) (R1 R2 : Type) (RR : R1 -> R2 -> Prop)
+         (b1 b2 : bool)
+         (vclo : (itree E R1 -> itree E R2 -> Prop) ->
+                 itree E R1 -> itree E R2 -> Prop)
+         (sim : itree E R1 -> itree E R2 -> Prop)
+         (P : itree' E R1 -> itree' E R2 -> Prop),
+          
+       (forall (r1 : R1) (r2 : R2), RR r1 r2 -> P (RetF r1) (RetF r2)) ->
+          
+       (forall (m1 : itree E R1) (m2 : itree E R2),
+           sim m1 m2 -> P (TauF m1) (TauF m2)) ->
+       
+       (forall (u : Type) (e : E u) (k1 : u -> itree E R1)
+          (k2 : u -> itree E R2),
+           (forall v : u, vclo sim (k1 v) (k2 v)) ->
+           P (VisF e k1) (VisF e k2)) ->
+       
+       (forall (t1 : itree E R1) (ot2 : itree' E R2),
+        is_true b1 ->
+        eqitF RR b1 b2 vclo sim (observe t1) ot2 ->
+        P (observe t1) ot2 -> P (TauF t1) ot2) ->
+       
+       (forall (ot1 : itree' E R1) (t2 : itree E R2),
+        is_true b2 ->
+        eqitF RR b1 b2 vclo sim ot1 (observe t2) ->
+        P ot1 (observe t2) -> P ot1 (TauF t2)) ->
+       
+       forall (i : itree' E R1) (i0 : itree' E R2),
+         eqitF RR b1 b2 vclo sim i i0 -> P i i0
+
+
+
+
+(**************)
+      
+      (* cut3 *)
+      { clear EQ; remember (TauF m1) as ot4.
+        hinduction REL before CIH; intros; try discriminate.
+
+        - dependent destruction Heqot4.
+          eapply EqTauVis; eauto.
+          red. right.
+          pclearbot.
+          eapply CIH; eauto.
+        - pclearbot.
+          eapply EqTauVis; eauto.
+          red. right.
+          eapply CIH; eauto.
+          inv Heqot4.
+          eapply eqit_inv_Tau_r.
+          pstep; red. auto.
+
+        - dependent destruction Heqot4.
+          pclearbot.
+
+          (* PROBLEM *)
+          admit.
+      }
+      
+      { eapply IHruttF; eauto. pstep_reverse. 
+        eapply eqit_inv_Tau_r; pstep; red; eauto.
+      }  
+  }
+
+
+
+
+  
+  (* 3: vis1 vis2 *)
+  { remember (VisF e k2) as ot2.
+    hinduction INR before CIH; intros; try discriminate.
+
+    (* vis3 *)
+    { dependent destruction Heqot2.
+      constructor; eauto.
+
+      intros a b H7.
+      destruct (H0 _ _ H7), (REL a); try contradiction; eauto. 
+    } 
+
+    (* cut2 *)
+    { dependent destruction Heqot2.
+      eapply EqVisRet; eauto.
+    }
+
+    { dependent destruction Heqot2.
+      pclearbot.
+      eapply EqVisTau; eauto.
+      red. right.
+      eapply CIH; eauto.
+      pstep; red.
+      econstructor; eauto.
+      intros.
+      red. red. left. eauto.
+    }
+      
+    { eapply EqTauR; eauto. }    
+  }
+      
+  { eapply EqTauL; eauto. }
+
+  { eapply IHINL; eauto.
+
+    assert (rutt EE1 EE2 ER1 ER2 REv RAns RR (Tau t2) (go ot23)) as A. 
+    { pstep; red; eauto. }
+
+    eapply rutt_inv_Tau_l in A; eauto.
+    punfold A; red in A.
+  }
+Abort.
+  
+
+*)
+
+        
 Lemma rutt_cong_eutt {E1 E2 R1 R2}
   (EE1: forall X, E1 X -> bool)
   (EE2: forall X, E2 X -> bool) 
@@ -283,16 +683,25 @@ Proof.
      linking t1 and t2; then an induction on Heutt to expose the relation
      between t1 and t1'. Finally, explore ruttF until landing on an rutt where
      the t1/t1' relation can be substituted by CIH, and conclude. *)
-  intros * Hrutt Heutt; revert t1 t1' Heutt t2 Hrutt.
-  ginit; gcofix CIH; intros t1 t1' Heutt t2 Hrutt.
+  intros REv RAns RR t1 t1' t2 Hrutt Heutt.
+  revert t1 t1' t2 Heutt Hrutt.
+  ginit; gcofix CIH; intros t1 t1' t2 Heutt Hrutt.
   punfold Hrutt; red in Hrutt.
   
   rewrite (itree_eta t1) in Heutt.
   rewrite (itree_eta t2).
+
+(*  assert (DEC: (exists t11, (observe t1') = TauF t11) \/
+                 (forall t11, (observe t1') <> TauF t11)). *)
+
+  assert (DEC: (forall (ot: itree' E1 R1), (exists t11, ot = TauF t11) \/
+                 (forall t11, ot <> TauF t11))).
+  { intro ot.
+    destruct ot; eauto; right; red; intros; discriminate. }
   
-  move Hrutt before CIH. revert_until Hrutt.
+  move Hrutt before CIH. move DEC before CIH. revert_until Hrutt.
   induction Hrutt as [ r1 r2 | m1 m2 | | | | | | m1 ot2 | ot1 m2 ];
-    clear t1 t2; intros t1' Heutt.
+   clear t1 t2; intros t1' Heutt.
   
   (* EqRet: t1 = Ret r1 ≈ t1'; we can rewrite away the Taus with the euttge
      closure and finish immediately with EqRet. *)
@@ -347,7 +756,7 @@ Proof.
             gstep. red. eapply EqVisTau; eauto. *)
           + idtac. rewrite tau_euttge, (itree_eta t2). now apply IHHrutt.
         }    
-        { idtac. rewrite tau_euttge, itree_eta; now apply IHHeutt. }
+        { idtac. rewrite tau_euttge, itree_eta. now apply IHHeutt. }
       }
     + inv Heqot1. gfinal; right. pstep; red. apply EqTau. right.
       fold_eqitF Heutt. rewrite tau_euttge in Heutt. now apply (CIH m1).
@@ -429,9 +838,47 @@ Proof.
  *)
   - pclearbot.
     gstep; red.
-    
-    assert (eutt eq m1 t1') as Heutt1.
-    { eapply eqit_inv_Tau_l in Heutt; eauto. }
+
+    specialize (DEC (observe t1')).
+    destruct DEC as [[t11 H1] | H1].
+    { rewrite H1.
+
+      assert (eutt eq m1 t11) as Heutt1.
+      { rewrite (itree_eta t1') in Heutt.
+        rewrite H1 in Heutt.
+        eapply eqit_inv_Tau_l in Heutt.
+        eapply eqit_inv_Tau_r in Heutt. eauto. }
+
+      eapply EqTauVis; eauto. 
+      gfinal. left.
+        
+      eapply CIH; eauto.
+    }
+
+    { punfold Heutt. red in Heutt.
+
+      remember (observe (Tau m1)) as ot1.
+      hinduction Heutt before CIH; intros.
+      - inv Heqot1.
+      - inv Heqot1.
+        specialize (H1 m2). contradiction.
+      - inv Heqot1.
+      - inv Heqot1.
+      - destruct ot2.
+        + eapply EqRetVis; eauto.
+          admit.
+        + specialize (H1 t). contradiction.
+        + eapply EqVis; eauto.
+          admit.
+          intros.
+          gfinal. left.
+          eapply CIH; eauto.   
+          
+      - specialize (H1 t2). contradiction.
+        
+  
+        
+      
 
     punfold Heutt; red in Heutt; cbn in Heutt.
     punfold Heutt1; red in Heutt1; cbn in Heutt1.
@@ -488,6 +935,58 @@ Proof.
     }
 Abort.     
 
+
+
+
+
+       
+@ruttF_ind
+     : forall (E1 E2 : Type -> Type) (R1 R2 : Type)
+         (EE1 : forall X : Type, E1 X -> bool)
+         (EE2 : forall X : Type, E2 X -> bool)
+         (ER1 : forall X : Type, E1 X -> R2 -> Prop)
+         (ER2 : forall X : Type, E2 X -> R1 -> Prop) 
+         (REv : prerel E1 E2) (RAns : postrel E1 E2) 
+         (RR : R1 -> R2 -> Prop) (sim : itree E1 R1 -> itree E2 R2 -> Prop)
+         (P : itree' E1 R1 -> itree' E2 R2 -> Prop),
+           
+       (forall (r1 : R1) (r2 : R2), RR r1 r2 -> P (RetF r1) (RetF r2)) ->
+           
+       (forall (m1 : itree E1 R1) (m2 : itree E2 R2),
+           sim m1 m2 -> P (TauF m1) (TauF m2)) ->
+       
+       (forall (A B : Type) (e1 : E1 A) (e2 : E2 B) 
+          (k1 : A -> itree E1 R1) (k2 : B -> itree E2 R2),
+        REv A B e1 e2 ->
+        (forall (a : A) (b : B), RAns A B e1 a e2 b -> sim (k1 a) (k2 b)) ->
+        P (VisF e1 k1) (VisF e2 k2)) ->
+       
+       (forall (A : Type) (e1 : E1 A) (k1 : A -> itree E1 R1) (r2 : R2),
+           IsCut_ EE1 A e1 -> ER1 A e1 r2 -> P (VisF e1 k1) (RetF r2)) ->
+       
+       (forall (A : Type) (e2 : E2 A) (k2 : A -> itree E2 R2) (r1 : R1),
+           IsCut_ EE2 A e2 -> ER2 A e2 r1 -> P (RetF r1) (VisF e2 k2)) ->
+       
+       (forall (A : Type) (e1 : E1 A) (k1 : A -> itree E1 R1)
+          (m2 : itree E2 R2),
+           IsCut_ EE1 A e1 -> sim (Vis e1 k1) m2 -> P (VisF e1 k1) (TauF m2)) ->
+       
+(***)  (forall (A : Type) (e2 : E2 A) (k2 : A -> itree E2 R2)
+          (m1 : itree E1 R1),
+           IsCut_ EE2 A e2 -> sim m1 (Vis e2 k2) -> P (TauF m1) (VisF e2 k2)) ->
+       
+       (forall (t1 : itree E1 R1) (ot2 : itree' E2 R2),
+        ruttF EE1 EE2 ER1 ER2 REv RAns RR sim (observe t1) ot2 ->
+        P (observe t1) ot2 -> P (TauF t1) ot2) ->
+       
+       (forall (ot1 : itree' E1 R1) (t2 : itree E2 R2),
+        ruttF EE1 EE2 ER1 ER2 REv RAns RR sim ot1 (observe t2) ->
+        P ot1 (observe t2) -> P ot1 (TauF t2)) ->
+       
+       forall (i : itree' E1 R1) (i0 : itree' E2 R2),
+         
+       ruttF EE1 EE2 ER1 ER2 REv RAns RR sim i i0 -> P i i0
+ 
 
 (*    
     { (* NO GOOD: eapply IHHeutt1; eauto. *)

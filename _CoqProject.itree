@@ -41,6 +41,7 @@ theories/Eq/Rutt.v
 theories/Eq/RuttFacts.v
 theories/Eq/XRutt.v
 theories/Eq/XRuttFacts.v
+theories/Eq/YRutt.v
 
 theories/Props/Leaf.v
 theories/Props/Finite.v
