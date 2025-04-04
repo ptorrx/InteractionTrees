@@ -363,12 +363,20 @@ Proof.
         right.
         eapply CIH; eauto.
         instantiate (1:= m1).
-        admit.
 
+        assert (m0 ≈ (Tau m1)) as A1.
+        { pstep; red. auto. }
+          
+        eapply eqit_inv_Tau_r in A1; auto.
+        
         pclearbot.
         punfold H0; red in H0.
         pstep; red. auto.
 
+(*        assert (rutt EE1 EE2 ER1 ER2 REv RAns RR (Tau m0) (Vis e2 k2)) as A1.
+        { pstep; red; auto.  
+*)        
+        
         admit.
      }        
 
@@ -422,7 +430,6 @@ Proof.
 Admitted.
   
  
-
 
 (*
 
