@@ -299,7 +299,8 @@ Proof.
   }
 
   (* 2: tau1 tau2 *)
-  { assert (DEC: (exists m23, ot23 = TauF m23) \/
+  { pclearbot.
+    assert (DEC: (exists m23, ot23 = TauF m23) \/
                    (forall m23, ot23 <> TauF m23)).
       { destruct ot23; eauto; right; red; intros; discriminate. }
       destruct DEC as [EQ | EQ].      
@@ -308,14 +309,51 @@ Proof.
       eapply CIH; eauto with paco.
       eapply rutt_inv_Tau.
       eapply fold_ruttF; try eapply INR; eauto. 
-    + inv INR; try (exfalso; eapply EQ; eauto; fail). 
+    + assert (DEC1: ((exists A (e23: E2 A) k23, (ot23 = VisF e23 k23)
+                             /\ IsCut_ EE2 A e23) \/
+                      ((forall A (e23: E2 A) k23, ot23 <> VisF e23 k23)
+                       \/ (exists A (e23: E2 A) k23, (ot23 = VisF e23 k23)
+                             /\ NoCut_ EE2 A e23)))).
+      { destruct ot23; eauto.
+        right. left. intros. discriminate.
+        right. left. intros. discriminate.
+        assert (IsCut_ EE2 X e \/ NoCut_ EE2 X e) as D.
+        { destruct (EE2 _ e). right; auto. left; auto. }
+        destruct D.
+        left. exists X, e, k. split; eauto.
+        right. right. exists X, e, k. split; eauto. 
+      }
+
+      destruct DEC1 as [EQ1 | EQ1].
+      destruct EQ1 as [A0 [e23 [k23 [A1 A2]]]].
+      inv A1.
+      dependent destruction INR; try (exfalso; eapply EQ; eauto; fail).
+      
       * pclearbot. eapply EqTauVis; eauto.
-      * eapply EqTauL; eauto. 
+      * eapply EqTauVis; eauto.
+        pclearbot. punfold REL. red in REL.
+        red. right.
+        eapply CIH; eauto.
+        instantiate (1:= m2).
+        pstep; red. auto.
+        pstep; red. auto.
+      * inv INR; intros; try (exfalso; eapply EQ; eauto; fail).
+        { destruct EQ1.
+          specialize (H A e2 k2).
+          contradiction.
+          destruct H as [A0 [e23 [k23 [B0 B1]]]]. 
+          dependent destruction B0.
+          destruct (EE2 _ e23).
+          inv H0.
+          inv B1.
+        }  
+        
+        eapply EqTauL; eauto. 
         pclearbot. punfold REL. red in REL.
         hinduction H0 before CIH; intros; try (exfalso; eapply EQ; eauto; fail).
 
       (* ret3 *)
-      { remember (RetF r1) as ot2.
+      { remember (RetF r1) as ot2.  
         hinduction REL before CIH; intros; inv Heqot2; eauto with paco itree.
         + constructor; eauto. 
         + eapply EqTauL; eauto. }
@@ -334,7 +372,7 @@ Proof.
         { eapply EqTauL; eauto. }
       }
 
-      (* cut2 NO *)
+      (* cut2 *)
       { clear EQ; remember (VisF e1 k1) as ot4.
         hinduction REL before CIH; intros; try discriminate.
 
@@ -354,30 +392,174 @@ Proof.
       (* cut3 *)
       { clear EQ.
 
+        remember (TauF m1) as ot4. (* remember m0 as ot3. *)        
+        hinduction REL before CIH; intros; try discriminate.
+
+        - dependent destruction Heqot4.
+          eapply EqTauVis; eauto.
+          red. right.
+          pclearbot.
+          eapply CIH; eauto.
+        - pclearbot.
+          eapply EqTauVis; eauto.
+          red. right.
+          eapply CIH; eauto.
+          inv Heqot4.
+          eapply eqit_inv_Tau_r.
+          pstep; red. auto.
+
+        - dependent destruction Heqot4.
+          pclearbot.
+          destruct EQ1.
+          specialize (H1 A e2 k2).
+          contradiction.
+
+          destruct H1 as [A0 [e23 [k23 [B0 B1]]]].
+          dependent destruction B0. 
+          destruct (EE2 _ e23).
+          inv H.
+          inv B1.
+        }  
+
+ (*       - dependent destruction Heqot1; eauto with paco.  
+     }        
+*)
+
+      { eapply IHruttF; eauto. pstep_reverse. 
+        eapply eqit_inv_Tau_r; pstep; red; eauto.
+      }  
+  }
+
+  
+  (* 3: vis1 vis2 *)
+  { remember (VisF e k2) as ot2.
+    hinduction INR before CIH; intros; try discriminate.
+
+    (* vis3 *)
+    { dependent destruction Heqot2.
+      constructor; eauto.
+
+      intros a b H7.
+      destruct (H0 _ _ H7), (REL a); try contradiction; eauto. 
+    } 
+
+    (* cut2 *)
+    { dependent destruction Heqot2.
+      eapply EqVisRet; eauto.
+    }
+
+    { dependent destruction Heqot2.
+      pclearbot.
+      eapply EqVisTau; eauto.
+      red. right.
+      eapply CIH; eauto.
+      pstep; red.
+      econstructor; eauto.
+      intros.
+      red. red. left. eauto.
+    }
+      
+    { eapply EqTauR; eauto. }    
+  }
+      
+  { eapply EqTauL; eauto. }
+
+  { eapply IHINL; eauto.
+
+    assert (rutt EE1 EE2 ER1 ER2 REv RAns RR (Tau t2) (go ot23)) as A. 
+    { pstep; red; eauto. }
+
+    eapply rutt_inv_Tau_l in A; eauto.
+    punfold A; red in A.
+  }
+Qed.
+
+
+
+
+Admitted.
+  
+
+
+        
+        
         assert (ruttF EE1 EE2 ER1 ER2 REv RAns RR
             (upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) r) 
             (TauF m0) (VisF e2 k2)) as BB.
-
-        eapply EqTauVis; eauto.
-        red.
-        right.
-        eapply CIH; eauto.
-        instantiate (1:= m1).
-
-        assert (m0 ≈ (Tau m1)) as A1.
-        { pstep; red. auto. }
           
-        eapply eqit_inv_Tau_r in A1; auto.
+        { eapply EqTauVis; eauto.
+          red.
+          right.
+          eapply CIH; eauto.
+          instantiate (1:= m1).
+           
+          assert (m0 ≈ (Tau m1)) as A1.
+          { pstep; red. auto. }
+          
+          eapply eqit_inv_Tau_r in A1; auto.
         
-        pclearbot.
-        punfold H0; red in H0.
-        pstep; red. auto.
+          pclearbot.
+          punfold H0; red in H0.
+          pstep; red. auto.
+        }
 
+(*        
+      assert ((upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) bot2) <2=
+                (upaco2 (rutt_ EE1 EE2 ER1 ER2 REv RAns RR) r)) as A1.
+      { intros.
+        red; red in PR.
+        destruct PR; auto with *.
+        left. 
+        eapply paco2_mon_bot; eauto.
+      }
+
+      pclearbot. 
+      
+      eapply rutt_monot in A1.
+      red in A1.
+      assert (VisF e2 k2 = observe (Vis e2 k2)) as A0.
+      { auto with paco. }
+      rewrite A0.
+      eexact A1.
+      red.
+      eauto with paco.
+*)
+
+        
 (*        assert (rutt EE1 EE2 ER1 ER2 REv RAns RR (Tau m0) (Vis e2 k2)) as A1.
         { pstep; red; auto.  
 *)        
+
+        clear REL CIH H0.
+
+        inversion BB; subst.
+        dependent destruction H4.
+        pclearbot.
         
-        admit.
+        remember (TauF m0) as ot1.
+        remember (VisF e2 k2) as ot2.
+        hinduction BB before H; intros; try discriminate; eauto with paco.
+
+        - dependent destruction Heqot1; eauto with paco.
+          pclearbot.
+          clear H2.
+          red in H1.
+          destruct H1.
+          punfold H1; red in H1.
+
+          admit.
+          (*
+          remember (observe m3) as ot3.
+          destruct ot3.
+
+          eapply EqRetVis; eauto.
+          admit.
+
+          eapply EqTauVis; eauto.
+          red. right.
+          *)
+                     
+        - dependent destruction Heqot1; eauto with paco.  
      }        
 
       { eapply IHruttF; eauto. pstep_reverse. 
